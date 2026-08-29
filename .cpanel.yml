@@ -1,0 +1,38 @@
+---
+# ============================================================
+#  cPanel Git Deployment - RZ Project
+# ------------------------------------------------------------
+#  Cara pakai:
+#   1. Di lokal: build asset -> `npm run build`, lalu commit & push.
+#   2. Di cPanel > Git Version Control > Manage > Pull (Update from Remote)
+#      lalu klik "Deploy HEAD Commit". Task di bawah jalan otomatis.
+#
+#  CATATAN:
+#   - Task ini berjalan DI DALAM folder repo (document root subdomain
+#     harus mengarah ke folder ini + /public).
+#   - Kalau `php` / `composer` tidak dikenal, ganti nilai PHP/COMPOSER
+#     di bawah dengan path lengkap dari hosting kamu, contoh:
+#       PHP="/opt/cpanel/ea-php82/root/usr/bin/php"
+#       COMPOSER="$PHP /home/USERNAME/composer.phar"
+#   - File .env di server TIDAK disentuh (aman, tetap pakai .env.production
+#     yang sudah ada di server).
+# ============================================================
+deployment:
+  tasks:
+    - export PHP="php"
+    - export COMPOSER="composer"
+    # Mode maintenance selama deploy
+    - $PHP artisan down --retry=15 || true
+    # Install dependency produksi (tanpa dev, autoloader dioptimasi)
+    - $COMPOSER install --no-dev --optimize-autoloader --no-interaction --prefer-dist
+    # Jalankan migrasi database (hapus baris ini kalau tidak mau auto-migrate)
+    - $PHP artisan migrate --force
+    # Bersihkan lalu bangun ulang cache
+    - $PHP artisan optimize:clear
+    - $PHP artisan config:cache
+    - $PHP artisan route:cache
+    - $PHP artisan view:cache
+    # Pastikan symlink storage ada (untuk file upload publik)
+    - $PHP artisan storage:link || true
+    # Selesai - keluar dari maintenance
+    - $PHP artisan up

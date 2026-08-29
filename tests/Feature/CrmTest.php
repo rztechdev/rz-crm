@@ -1,0 +1,231 @@
+<?php
+
+namespace Tests\Feature;
+
+use App\Models\Lead;
+use App\Models\Project;
+use App\Models\Payment;
+use App\Models\MaintenanceSubscription;
+use App\Models\MessageLog;
+use App\Models\User;
+use App\Services\WhatsApp\FlustraWhatsAppService;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\TestCase;
+
+class CrmTest extends TestCase
+{
+    use RefreshDatabase;
+
+    protected User $admin;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $this->admin = User::factory()->create([
+            'email' => 'rzcompanyidn@gmail.com',
+        ]);
+    }
+
+    public function test_dashboard_renders_with_pipeline_metrics(): void
+    {
+        $lead = Lead::create([
+            'nama_usaha' => 'Toko Sepatu Bagus',
+            'kontak_wa' => '081234567890',
+            'status' => 'sudah_chat',
+            'paket_diminati' => 'landing_page', // 499.000
+        ]);
+
+        $response = $this->actingAs($this->admin)->get(route('dashboard'));
+
+        $response->assertStatus(200);
+        $response->assertSee('Potensi Pipeline');
+        $response->assertSee('499.000');
+    }
+
+    public function test_lead_can_be_created_and_marked_as_deal(): void
+    {
+        $response = $this->actingAs($this->admin)->post(route('leads.store'), [
+            'nama_usaha' => 'Warung Bakso Enak',
+            'nama_kontak' => 'Pak Joko',
+            'kontak_wa' => '081299887766',
+            'sumber' => 'referral',
+            'status' => 'nego',
+            'paket_diminati' => 'company_profile',
+            'follow_up_date' => now()->addDay()->toDateString(),
+        ]);
+
+        $lead = Lead::where('nama_usaha', 'Warung Bakso Enak')->first();
+        $this->assertNotNull($lead);
+        $response->assertRedirect(route('leads.show', $lead));
+
+        // Test Convert to Deal
+        $convertResponse = $this->actingAs($this->admin)->post(route('leads.convert-deal', $lead), [
+            'nama_project' => 'Website Warung Bakso Enak',
+            'harga' => 999000,
+        ]);
+
+        $lead->refresh();
+        $this->assertEquals('deal', $lead->status);
+        $this->assertCount(1, $lead->projects);
+        $project = $lead->projects->first();
+        $this->assertEquals(999000, $project->harga);
+        $convertResponse->assertRedirect(route('projects.show', $project));
+    }
+
+    public function test_anti_spam_guardrail_blocks_automated_wa_to_cold_leads(): void
+    {
+        $coldLead = Lead::create([
+            'nama_usaha' => 'Cold Outreach Target',
+            'kontak_wa' => '081233445566',
+            'status' => 'belum_dihubungi', // Non-deal lead
+            'paket_diminati' => 'landing_page',
+        ]);
+
+        $waService = app(FlustraWhatsAppService::class);
+
+        // Attempt automated send
+        $result = $waService->sendWhatsApp(
+            to: $coldLead->kontak_wa,
+            message: 'Pesan promosi otomatis',
+            lead: $coldLead,
+            tipePesan: 'promosi',
+            isAutomated: true // Automated trigger
+        );
+
+        $this->assertFalse($result['success']);
+        $this->assertEquals('blocked_by_guardrail', $result['status']);
+
+        // Verify that MessageLog recorded the blocked action
+        $log = MessageLog::where('lead_id', $coldLead->id)->first();
+        $this->assertNotNull($log);
+        $this->assertEquals('blocked_by_guardrail', $log->status_kirim);
+    }
+
+    public function test_project_dp_status_update_creates_payment_and_logs_wa(): void
+    {
+        $lead = Lead::create([
+            'nama_usaha' => 'Klien Deal Sukses',
+            'kontak_wa' => '081255667788',
+            'status' => 'deal',
+            'paket_diminati' => 'company_profile',
+        ]);
+
+        $project = Project::create([
+            'lead_id' => $lead->id,
+            'nama_project' => 'Website Klien Deal',
+            'paket' => 'company_profile',
+            'harga' => 1000000,
+            'status' => 'draft',
+        ]);
+
+        $response = $this->actingAs($this->admin)->post(route('projects.update-status', $project), [
+            'status' => 'dp_diterima',
+            'dp_amount' => 500000,
+            'send_wa' => 1,
+        ]);
+
+        $response->assertSessionHas('success');
+        $project->refresh();
+
+        $this->assertEquals('dp_diterima', $project->status);
+        $this->assertEquals(500000, $project->total_paid);
+
+        // Verify MessageLog created
+        $log = MessageLog::where('lead_id', $lead->id)->where('tipe_pesan', 'invoice_dp')->first();
+        $this->assertNotNull($log);
+        $this->assertStringContainsString('DP untuk project', $log->isi_pesan);
+    }
+
+    public function test_project_selesai_creates_maintenance_and_logs_wa(): void
+    {
+        $lead = Lead::create([
+            'nama_usaha' => 'Klien Selesai Web',
+            'kontak_wa' => '081277889900',
+            'status' => 'deal',
+            'paket_diminati' => 'landing_page',
+        ]);
+
+        $project = Project::create([
+            'lead_id' => $lead->id,
+            'nama_project' => 'Landing Page Klien Selesai',
+            'paket' => 'landing_page',
+            'harga' => 499000,
+            'status' => 'review',
+        ]);
+
+        $response = $this->actingAs($this->admin)->post(route('projects.update-status', $project), [
+            'status' => 'selesai',
+            'link_website' => 'https://klienselesai.com',
+            'create_maintenance' => 1,
+            'send_wa' => 1,
+        ]);
+
+        $response->assertSessionHas('success');
+        $project->refresh();
+
+        $this->assertEquals('selesai', $project->status);
+        $this->assertEquals('https://klienselesai.com', $project->link_website);
+
+        // Verify Maintenance created
+        $maintenance = MaintenanceSubscription::where('lead_id', $lead->id)->first();
+        $this->assertNotNull($maintenance);
+        $this->assertEquals('aktif', $maintenance->status);
+
+        // Verify MessageLog created
+        $log = MessageLog::where('lead_id', $lead->id)->where('tipe_pesan', 'project_selesai')->first();
+        $this->assertNotNull($log);
+        $this->assertStringContainsString('https://klienselesai.com', $log->isi_pesan);
+    }
+
+    public function test_flustra_webhook_receives_incoming_reply(): void
+    {
+        $lead = Lead::create([
+            'nama_usaha' => 'Klien Chat Webhook',
+            'kontak_wa' => '081299998888',
+            'status' => 'deal',
+            'paket_diminati' => 'landing_page',
+        ]);
+
+        $payload = [
+            'from' => '6281299998888',
+            'message' => 'Halo mas, websitenya mantap banget!',
+        ];
+
+        $response = $this->postJson(route('webhook.flustra'), $payload);
+
+        $response->assertStatus(200);
+        $response->assertJson(['success' => true, 'lead_matched' => true]);
+
+        // Check incoming message in MessageLog
+        $log = MessageLog::where('lead_id', $lead->id)->where('arah', 'masuk')->first();
+        $this->assertNotNull($log);
+        $this->assertEquals('Halo mas, websitenya mantap banget!', $log->isi_pesan);
+        $this->assertEquals('received', $log->status_kirim);
+    }
+
+    public function test_maintenance_reminder_command_executes_successfully(): void
+    {
+        $lead = Lead::create([
+            'nama_usaha' => 'Klien Langganan Maintenance',
+            'kontak_wa' => '081233221100',
+            'status' => 'deal',
+            'paket_diminati' => 'company_profile',
+        ]);
+
+        $sub = MaintenanceSubscription::create([
+            'lead_id' => $lead->id,
+            'harga_bulanan' => 150000,
+            'status' => 'aktif',
+            'tanggal_mulai' => now()->subMonth(),
+            'tanggal_jatuh_tempo_berikutnya' => now()->addDays(2), // H-2 (within H-3 window)
+        ]);
+
+        $this->artisan('crm:send-maintenance-reminders')
+            ->expectsOutputToContain('Klien Langganan Maintenance')
+            ->assertExitCode(0);
+
+        $sub->refresh();
+        $this->assertNotNull($sub->terakhir_diingatkan_at);
+    }
+}
