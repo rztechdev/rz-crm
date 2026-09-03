@@ -1,5 +1,5 @@
 <x-app-layout>
-    <div class="py-6 sm:py-8 bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-50 min-h-screen transition-colors duration-300"
+    <div class="space-y-6 w-full"
          x-data="{ 
             openStatusModal: false,
             activeProject: {},
@@ -9,7 +9,6 @@
             createMaintenance: true,
             sendWa: true
          }">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
 
             <!-- Flash Alert -->
             <x-flash />
@@ -19,6 +18,32 @@
                 <div>
                     <h1 class="text-2xl sm:text-3xl font-extrabold text-zinc-900 dark:text-white tracking-tight">Proyek Klien</h1>
                     <p class="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 mt-1">Kelola progres pengerjaan website, pencatatan DP, serah terima, dan automasi WhatsApp.</p>
+                </div>
+                <div class="relative" x-data="{ openExport: false }">
+                    <button @click="openExport = !openExport" @click.outside="openExport = false" 
+                            class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 text-zinc-700 dark:text-zinc-300 text-xs font-semibold transition-all shadow-xs">
+                        <span class="material-symbols-outlined text-[16px] text-sky-600">download</span>
+                        <span>Export Proyek</span>
+                        <span class="material-symbols-outlined text-[14px] text-zinc-400">expand_more</span>
+                    </button>
+                    <div x-show="openExport" x-cloak 
+                         class="absolute right-0 mt-1.5 w-44 bg-white dark:bg-zinc-900 rounded-lg shadow-lg border border-zinc-200 dark:border-zinc-800 py-1 z-50 text-xs font-medium">
+                        <a href="{{ route('export.projects', array_merge(request()->query(), ['format' => 'csv'])) }}" 
+                           class="flex items-center gap-2 px-3 py-2 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">
+                            <span class="material-symbols-outlined text-[16px] text-emerald-600">table_chart</span>
+                            <span>Export CSV / Excel</span>
+                        </a>
+                        <a href="{{ route('export.projects', array_merge(request()->query(), ['format' => 'pdf'])) }}" target="_blank"
+                           class="flex items-center gap-2 px-3 py-2 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">
+                            <span class="material-symbols-outlined text-[16px] text-rose-600">picture_as_pdf</span>
+                            <span>Export PDF</span>
+                        </a>
+                        <a href="{{ route('export.projects', array_merge(request()->query(), ['format' => 'word'])) }}" 
+                           class="flex items-center gap-2 px-3 py-2 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">
+                            <span class="material-symbols-outlined text-[16px] text-blue-600">description</span>
+                            <span>Export Word (.doc)</span>
+                        </a>
+                    </div>
                 </div>
             </div>
 
@@ -245,7 +270,5 @@
                     </div>
                 </form>
             </div>
-        </div>
-
     </div>
 </x-app-layout>

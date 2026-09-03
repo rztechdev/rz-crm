@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\MaintenanceSubscription;
 use App\Models\Lead;
+use App\Services\ActivityLogger;
 use App\Services\WhatsApp\FlustraWhatsAppService;
 use App\Services\WhatsApp\WhatsAppTemplates;
 use Illuminate\Http\Request;
@@ -58,6 +59,8 @@ class MaintenanceController extends Controller
 
         $sub = MaintenanceSubscription::create($validated);
 
+        ActivityLogger::log('maintenance_created', "Mendaftarkan langganan maintenance untuk {$sub->lead->nama_usaha} (Rp " . number_format($sub->harga_bulanan, 0, ',', '.') . "/bln)", 'MaintenanceSubscription', $sub->id);
+
         return back()->with('success', "Langganan maintenance untuk {$sub->lead->nama_usaha} berhasil ditambahkan.");
     }
 
@@ -68,6 +71,8 @@ class MaintenanceController extends Controller
     {
         $newStatus = $subscription->status === 'aktif' ? 'nonaktif' : 'aktif';
         $subscription->update(['status' => $newStatus]);
+
+        ActivityLogger::log('maintenance_status_changed', "Mengubah status maintenance {$subscription->lead->nama_usaha} menjadi " . strtoupper($newStatus), 'MaintenanceSubscription', $subscription->id);
 
         return back()->with('success', "Status maintenance {$subscription->lead->nama_usaha} berhasil diubah menjadi: " . strtoupper($newStatus));
     }
@@ -90,6 +95,8 @@ class MaintenanceController extends Controller
 
         if ($res['success'] ?? false) {
             $subscription->update(['terakhir_diingatkan_at' => now()]);
+            ActivityLogger::log('maintenance_reminder_sent', "Mengirim WhatsApp reminder jatuh tempo maintenance ke {$lead->nama_usaha}", 'MaintenanceSubscription', $subscription->id);
+
             return back()->with('success', "Pengingat tagihan maintenance berhasil dikirim ke {$lead->nama_usaha} ({$lead->kontak_wa}).");
         }
 

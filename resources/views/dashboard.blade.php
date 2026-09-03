@@ -1,6 +1,5 @@
 <x-app-layout>
-    <div class="py-6 sm:py-8 bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-50 min-h-screen transition-colors duration-300">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
+    <div class="space-y-6 w-full">
 
             <!-- Flash Alert -->
             <x-flash />
@@ -8,7 +7,7 @@
             <!-- Header Title Row -->
             <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div>
-                    <h1 class="text-2xl sm:text-3xl font-extrabold text-zinc-900 dark:text-white tracking-tight">Dashboard Ikhtisar</h1>
+                    <h1 class="text-2xl sm:text-3xl font-extrabold text-zinc-900 dark:text-white tracking-tight">Dashboard</h1>
                     <p class="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 mt-1">Pantau pipeline penjualan, closing proyek, dan langganan maintenance RZ Digital Creative.</p>
                 </div>
                 <div class="flex items-center gap-2.5">
@@ -19,84 +18,65 @@
                 </div>
             </div>
 
-            <!-- Top 4 Metric KPI Cards -->
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+            <!-- Top 4 Metric KPI Cards (Clean Shadcn UI Style) -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <!-- Card 1: Potensi Pipeline -->
-                <div class="bg-white dark:bg-zinc-900 p-5 sm:p-6 rounded-2xl border border-zinc-200/80 dark:border-zinc-800 shadow-sm hover:shadow-md transition-all duration-200 group">
-                    <div class="flex items-start justify-between">
-                        <div>
-                            <p class="text-[11px] font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500 font-mono">Potensi Pipeline</p>
-                            <h3 class="text-2xl sm:text-3xl font-black text-zinc-900 dark:text-white mt-1.5">Rp {{ number_format($stats['potensi_pipeline'], 0, ',', '.') }}</h3>
-                        </div>
-                        <div class="p-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 group-hover:scale-110 transition-transform">
-                            <span class="material-symbols-outlined text-[24px]">filter_alt</span>
-                        </div>
+                <div class="rounded-xl border border-zinc-200/80 dark:border-zinc-800/80 bg-white dark:bg-zinc-900 p-5 shadow-xs">
+                    <div class="flex items-center justify-between pb-2">
+                        <span class="text-xs font-medium text-zinc-500 dark:text-zinc-400">Potensi Pipeline</span>
+                        <span class="material-symbols-outlined text-[18px] text-zinc-400 dark:text-zinc-500">filter_alt</span>
                     </div>
-                    <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-3 flex items-center gap-1.5">
-                        <span class="inline-block w-2 h-2 rounded-full bg-amber-400"></span>
-                        Dari {{ $stats['leads_per_status']['sudah_chat'] + $stats['leads_per_status']['nego'] }} prospek (Sudah Chat + Nego)
+                    <div class="text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">
+                        Rp {{ number_format($stats['potensi_pipeline'], 0, ',', '.') }}
+                    </div>
+                    <p class="text-[11px] text-zinc-500 dark:text-zinc-400 mt-1.5 flex items-center gap-1.5">
+                        <span class="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                        Dari {{ $stats['leads_per_status']['sudah_chat'] + $stats['leads_per_status']['nego'] }} prospek aktif
                     </p>
                 </div>
 
                 <!-- Card 2: Closing Bulan Ini -->
-                <div class="bg-white dark:bg-zinc-900 p-5 sm:p-6 rounded-2xl border border-zinc-200/80 dark:border-zinc-800 shadow-sm hover:shadow-md transition-all duration-200 group">
-                    <div class="flex items-start justify-between">
-                        <div>
-                            <p class="text-[11px] font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500 font-mono">Closing Bulan Ini</p>
-                            <h3 class="text-2xl sm:text-3xl font-black text-zinc-900 dark:text-white mt-1.5">Rp {{ number_format($stats['closing_bulan_ini'], 0, ',', '.') }}</h3>
-                        </div>
-                        <div class="p-2.5 rounded-xl bg-teal-50 dark:bg-teal-950/50 text-teal-600 dark:text-teal-400 group-hover:scale-110 transition-transform">
-                            <span class="material-symbols-outlined text-[24px]">verified</span>
-                        </div>
+                <div class="rounded-xl border border-zinc-200/80 dark:border-zinc-800/80 bg-white dark:bg-zinc-900 p-5 shadow-xs">
+                    <div class="flex items-center justify-between pb-2">
+                        <span class="text-xs font-medium text-zinc-500 dark:text-zinc-400">Closing Bulan Ini</span>
+                        <span class="material-symbols-outlined text-[18px] text-zinc-400 dark:text-zinc-500">verified</span>
                     </div>
-                    <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-3 flex items-center gap-1.5">
-                        <span class="inline-block w-2 h-2 rounded-full bg-emerald-500"></span>
-                        {{ $stats['project_deal_count'] }} proyek Deal berjalan bulan {{ now()->translatedFormat('F') }}
+                    <div class="text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">
+                        Rp {{ number_format($stats['closing_bulan_ini'], 0, ',', '.') }}
+                    </div>
+                    <p class="text-[11px] text-zinc-500 dark:text-zinc-400 mt-1.5 flex items-center gap-1.5">
+                        <span class="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                        {{ $stats['project_deal_count'] }} proyek deal bulan {{ now()->translatedFormat('F') }}
                     </p>
                 </div>
 
                 <!-- Card 3: MRR Maintenance -->
-                <div class="bg-white dark:bg-zinc-900 p-5 sm:p-6 rounded-2xl border border-zinc-200/80 dark:border-zinc-800 shadow-sm hover:shadow-md transition-all duration-200 group">
-                    <div class="flex items-start justify-between">
-                        <div>
-                            <p class="text-[11px] font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500 font-mono">MRR Maintenance</p>
-                            <h3 class="text-2xl sm:text-3xl font-black text-zinc-900 dark:text-white mt-1.5">Rp {{ number_format($stats['mrr_maintenance'], 0, ',', '.') }}<span class="text-xs text-zinc-400 font-normal">/bln</span></h3>
-                        </div>
-                        <div class="p-2.5 rounded-xl bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 group-hover:scale-110 transition-transform">
-                            <span class="material-symbols-outlined text-[24px]">autorenew</span>
-                        </div>
+                <div class="rounded-xl border border-zinc-200/80 dark:border-zinc-800/80 bg-white dark:bg-zinc-900 p-5 shadow-xs">
+                    <div class="flex items-center justify-between pb-2">
+                        <span class="text-xs font-medium text-zinc-500 dark:text-zinc-400">MRR Maintenance</span>
+                        <span class="material-symbols-outlined text-[18px] text-zinc-400 dark:text-zinc-500">autorenew</span>
                     </div>
-                    <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-3 flex items-center gap-1.5">
-                        <span class="inline-block w-2 h-2 rounded-full bg-indigo-500"></span>
-                        {{ $stats['active_maintenance_count'] }} klien berlangganan aktif
+                    <div class="text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">
+                        Rp {{ number_format($stats['mrr_maintenance'], 0, ',', '.') }}<span class="text-xs font-normal text-zinc-400">/bln</span>
+                    </div>
+                    <p class="text-[11px] text-zinc-500 dark:text-zinc-400 mt-1.5 flex items-center gap-1.5">
+                        <span class="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                        {{ $stats['active_maintenance_count'] }} klien aktif
                     </p>
                 </div>
 
-                <!-- Card 4: Total Leads -->
-                <div class="bg-white dark:bg-zinc-900 p-5 sm:p-6 rounded-2xl border border-zinc-200/80 dark:border-zinc-800 shadow-sm hover:shadow-md transition-all duration-200 group">
-                    <div class="flex items-start justify-between">
-                        <div>
-                            <p class="text-[11px] font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500 font-mono">Total Database Leads</p>
-                            <h3 class="text-2xl sm:text-3xl font-black text-zinc-900 dark:text-white mt-1.5">{{ $stats['total_leads'] }} <span class="text-xs text-zinc-400 font-normal">Kontak</span></h3>
-                        </div>
-                        <div class="p-2.5 rounded-xl bg-amber-50 dark:bg-amber-950/50 text-amber-600 dark:text-amber-400 group-hover:scale-110 transition-transform">
-                            <span class="material-symbols-outlined text-[24px]">contacts</span>
-                        </div>
+                <!-- Card 4: Total Database Leads -->
+                <div class="rounded-xl border border-zinc-200/80 dark:border-zinc-800/80 bg-white dark:bg-zinc-900 p-5 shadow-xs">
+                    <div class="flex items-center justify-between pb-2">
+                        <span class="text-xs font-medium text-zinc-500 dark:text-zinc-400">Total Leads</span>
+                        <span class="material-symbols-outlined text-[18px] text-zinc-400 dark:text-zinc-500">contacts</span>
                     </div>
-                    <!-- Mini Status Bar -->
-                    <div class="w-full bg-zinc-100 dark:bg-zinc-800 h-2 rounded-full mt-3 overflow-hidden flex">
-                        @php
-                            $t = max(1, $stats['total_leads']);
-                            $pBelum = ($stats['leads_per_status']['belum_dihubungi'] / $t) * 100;
-                            $pChat = ($stats['leads_per_status']['sudah_chat'] / $t) * 100;
-                            $pNego = ($stats['leads_per_status']['nego'] / $t) * 100;
-                            $pDeal = ($stats['leads_per_status']['deal'] / $t) * 100;
-                        @endphp
-                        <div style="width: {{ $pDeal }}%" class="bg-emerald-500" title="Deal"></div>
-                        <div style="width: {{ $pNego }}%" class="bg-amber-400" title="Nego"></div>
-                        <div style="width: {{ $pChat }}%" class="bg-sky-400" title="Sudah Chat"></div>
-                        <div style="width: {{ $pBelum }}%" class="bg-zinc-300 dark:bg-zinc-600" title="Belum Dihubungi"></div>
+                    <div class="text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">
+                        {{ $stats['total_leads'] }} <span class="text-xs font-normal text-zinc-400">Kontak</span>
                     </div>
+                    <p class="text-[11px] text-zinc-500 dark:text-zinc-400 mt-1.5">
+                        {{ $stats['leads_per_status']['deal'] }} Deal • {{ $stats['leads_per_status']['nego'] }} Nego • {{ $stats['leads_per_status']['sudah_chat'] }} Chat
+                    </p>
                 </div>
             </div>
 
@@ -272,5 +252,4 @@
             </div>
 
         </div>
-    </div>
 </x-app-layout>

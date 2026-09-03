@@ -34,6 +34,7 @@ class RegistrationTest extends TestCase
         $response = $this->actingAs($admin)->post(route('users.store'), [
             'name' => 'Staff Baru',
             'email' => 'staff@rzdigitalcreative.com',
+            'role' => 'sales',
             'password' => 'password123',
             'password_confirmation' => 'password123',
         ]);

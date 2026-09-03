@@ -25,7 +25,11 @@
                     <span class="text-zinc-800 dark:text-zinc-200 font-bold truncate">{{ $project->nama_project }}</span>
                 </div>
 
-                <div class="flex items-center gap-2.5">
+                <div class="flex flex-wrap items-center gap-2.5">
+                    <a href="{{ route('invoices.project', $project) }}" target="_blank" class="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-800 dark:text-zinc-200 hover:border-emerald-500 text-xs font-bold transition-all shadow-sm">
+                        <span class="material-symbols-outlined text-[18px] text-emerald-600">receipt_long</span>
+                        <span>Lihat &amp; Cetak Invoice</span>
+                    </a>
                     <button @click="openStatusModal = true" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 text-xs font-bold transition-all shadow-sm hover:shadow active:scale-95">
                         <span class="material-symbols-outlined text-[18px]">sync_alt</span>
                         <span>Ubah Status Proyek</span>
@@ -115,10 +119,13 @@
                                     </div>
                                     <p class="text-[11px] text-zinc-400 mt-0.5">{{ $p->tanggal ? $p->tanggal->format('d M Y') : '-' }} • {{ $p->catatan ?: 'Tanpa catatan' }}</p>
                                 </div>
-                                <div class="text-right">
+                                <div class="flex items-center gap-3 text-right">
                                     <span class="font-mono font-bold text-xs text-zinc-900 dark:text-white">
                                         Rp {{ number_format($p->jumlah, 0, ',', '.') }}
                                     </span>
+                                    <a href="{{ route('invoices.receipt', $p) }}" target="_blank" class="p-1.5 rounded-lg text-zinc-400 hover:text-emerald-600 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors" title="Cetak Kwitansi Resmi">
+                                        <span class="material-symbols-outlined text-[18px]">receipt</span>
+                                    </a>
                                 </div>
                             </div>
                         @empty

@@ -3,9 +3,11 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use App\Services\ActivityLogger;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rules;
+use Spatie\Permission\Models\Role;
 
 class UserController extends Controller
 {
@@ -14,9 +16,10 @@ class UserController extends Controller
      */
     public function index()
     {
-        $users = User::latest()->paginate(15);
+        $users = User::with('roles')->latest()->paginate(15);
+        $roles = Role::all();
 
-        return view('users.index', compact('users'));
+        return view('users.index', compact('users', 'roles'));
     }
 
     /**
@@ -28,6 +31,7 @@ class UserController extends Controller
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:'.User::class],
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
+            'role' => ['required', 'string', 'in:admin,sales,project_manager,finance'],
         ]);
 
         $user = User::create([
@@ -37,7 +41,14 @@ class UserController extends Controller
             'email_verified_at' => now(),
         ]);
 
-        return back()->with('success', "Akun pengguna {$user->name} ({$user->email}) berhasil ditambahkan.");
+        if ($request->filled('role')) {
+            $role = Role::firstOrCreate(['name' => $request->role, 'guard_name' => 'web']);
+            $user->syncRoles([$role]);
+        }
+
+        ActivityLogger::log('user_created', "Menambahkan akun tim {$user->name} ({$user->email}) dengan peran {$request->role}", 'User', $user->id);
+
+        return back()->with('success', "Akun pengguna {$user->name} ({$user->email}) berhasil ditambahkan sebagai {$request->role}.");
     }
 
     /**
@@ -49,6 +60,7 @@ class UserController extends Controller
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:users,email,'.$user->id],
             'password' => ['nullable', 'confirmed', Rules\Password::defaults()],
+            'role' => ['nullable', 'string', 'in:admin,sales,project_manager,finance'],
         ]);
 
         $data = [
@@ -61,6 +73,13 @@ class UserController extends Controller
         }
 
         $user->update($data);
+
+        if ($request->filled('role')) {
+            $role = Role::firstOrCreate(['name' => $request->role, 'guard_name' => 'web']);
+            $user->syncRoles([$role]);
+        }
+
+        ActivityLogger::log('user_updated', "Memperbarui profil akun tim {$user->name}", 'User', $user->id);
 
         return back()->with('success', "Data pengguna {$user->name} berhasil diperbarui.");
     }
@@ -75,7 +94,10 @@ class UserController extends Controller
         }
 
         $name = $user->name;
+        $userId = $user->id;
         $user->delete();
+
+        ActivityLogger::log('user_deleted', "Menghapus akun tim {$name}", 'User', $userId);
 
         return back()->with('success', "Akun pengguna {$name} berhasil dihapus.");
     }

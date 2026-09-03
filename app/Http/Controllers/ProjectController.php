@@ -6,6 +6,7 @@ use App\Models\Project;
 use App\Models\Lead;
 use App\Models\Payment;
 use App\Models\MaintenanceSubscription;
+use App\Services\ActivityLogger;
 use App\Services\WhatsApp\FlustraWhatsAppService;
 use App\Services\WhatsApp\WhatsAppTemplates;
 use Illuminate\Http\Request;
@@ -79,6 +80,8 @@ class ProjectController extends Controller
 
         $project = Project::create($validated);
 
+        ActivityLogger::log('project_created', "Membuat project baru: {$project->nama_project}", 'Project', $project->id);
+
         return redirect()->route('projects.show', $project)->with('success', "Project {$project->nama_project} berhasil dibuat.");
     }
 
@@ -108,6 +111,8 @@ class ProjectController extends Controller
         ]);
 
         $project->update($validated);
+
+        ActivityLogger::log('project_updated', "Memperbarui data project {$project->nama_project}", 'Project', $project->id);
 
         return back()->with('success', "Project {$project->nama_project} berhasil diperbarui.");
     }
@@ -141,6 +146,8 @@ class ProjectController extends Controller
         }
 
         $project->save();
+
+        ActivityLogger::log('project_status_changed', "Status project {$project->nama_project} diubah dari {$oldStatus} menjadi {$newStatus}", 'Project', $project->id);
 
         $waNotificationSent = false;
         $waMessageSummary = '';
@@ -227,7 +234,10 @@ class ProjectController extends Controller
     public function destroy(Project $project)
     {
         $nama = $project->nama_project;
+        $id = $project->id;
         $project->delete();
+
+        ActivityLogger::log('project_deleted', "Menghapus project {$nama}", 'Project', $id);
 
         return redirect()->route('projects.index')->with('success', "Project {$nama} berhasil dihapus.");
     }

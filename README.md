@@ -51,17 +51,6 @@ php artisan migrate --seed
 npm run build
 npm run all
 ```
-
----
-
-## 🔑 Kredensial Default Admin
-
-- **URL**: `http://localhost:8022`
-- **Email**: `rzcompanyidn@gmail.com`
-- **Password**: `12345678`
-
----
-
 ## 📄 Lisensi
 
 Hak Cipta © RZ Digital Creative. Dilindungi Undang-Undang.

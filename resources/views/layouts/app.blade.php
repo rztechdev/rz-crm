@@ -2,7 +2,7 @@
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
     <head>
         <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
         <meta name="csrf-token" content="{{ csrf_token() }}">
         <meta name="user-id" content="{{ auth()->id() }}">
 
@@ -13,7 +13,7 @@
 
         <link rel="preconnect" href="https://fonts.googleapis.com">
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet" />
+        <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet" />
         <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
         <script>
             // Inline theme check to prevent flickering (FOUC)
@@ -39,13 +39,13 @@
                 
                 @isset($header)
                     <div class="bg-white dark:bg-zinc-950 border-b border-zinc-200 dark:border-zinc-800 shadow-sm relative z-20 transition-colors duration-300">
-                        <div class="max-w-7xl mx-auto py-5 px-4 sm:px-8">
+                        <div class="max-w-[1720px] mx-auto py-5 px-4 sm:px-8">
                             {{ $header }}
                         </div>
                     </div>
                 @endisset
 
-                <main class="flex-1 p-4 sm:p-8 relative">
+                <main class="flex-1 p-4 sm:p-8 pb-28 lg:pb-8 relative w-full max-w-[1720px] mx-auto">
                     {{ $slot }}
                 </main>
 
@@ -53,6 +53,7 @@
             
         </div>
         
+        <x-quick-snippets-modal />
         <div id="toast-container" class="fixed bottom-5 right-5 z-[60] pointer-events-none flex flex-col items-end w-full sm:max-w-sm"></div>
         @stack('scripts')
     </body>

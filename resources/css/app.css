@@ -2,11 +2,37 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer base {
+    :root {
+        --font-sans: 'Plus Jakarta Sans', 'Inter', system-ui, sans-serif;
+        --font-mono: 'JetBrains Mono', monospace;
+    }
+
+    body {
+        font-family: var(--font-sans);
+        letter-spacing: -0.011em;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+        text-rendering: optimizeLegibility;
+    }
+
+    h1, h2, h3, h4, h5, h6 {
+        letter-spacing: -0.025em;
+    }
+
+    /* Prevent mobile browser (iOS / Android) zoom on input focus */
+    @media screen and (max-width: 768px) {
+        input, select, textarea {
+            font-size: 16px !important;
+        }
+    }
+}
+
 @layer utilities {
-    /* Map old hex classes to new Zinc/RZ Sage Green scheme */
+    /* Map old hex classes to new modern Zinc/Emerald scheme */
     .bg-\[\#0F172A\] { @apply bg-zinc-50 dark:bg-zinc-950 transition-colors duration-300; }
     .bg-\[\#1E293B\] { @apply bg-white dark:bg-zinc-900 transition-colors duration-300; }
-    .border-\[\#334155\] { @apply border-zinc-200 dark:border-zinc-800 transition-colors duration-300; }
+    .border-\[\#334155\] { @apply border-zinc-200/80 dark:border-zinc-800 transition-colors duration-300; }
     .text-\[\#38BDF8\] { @apply text-emerald-600 dark:text-emerald-400; }
     .bg-\[\#38BDF8\] { @apply bg-emerald-600 dark:bg-emerald-500 text-white; }
     .border-\[\#38BDF8\] { @apply border-emerald-600 dark:border-emerald-500; }
@@ -15,13 +41,13 @@
     .hover\:bg-\[\#0F172A\]\/50:hover { @apply hover:bg-zinc-100 dark:hover:bg-zinc-800/50; }
     .hover\:text-\[\#38BDF8\]:hover { @apply hover:text-emerald-600 dark:hover:text-emerald-400; }
     
-    .shadow-\[0_0_15px_rgba\(56\,189\,248\,0\.2\)\] { @apply shadow-sm; }
-    .shadow-\[0_0_15px_rgba\(56\,189\,248\,0\.3\)\] { @apply shadow-sm; }
-    .shadow-\[0_0_20px_rgba\(56\,189\,248\,0\.5\)\] { @apply shadow-md; }
+    .shadow-\[0_0_15px_rgba\(56\,189\,248\,0\.2\)\] { @apply shadow-xs; }
+    .shadow-\[0_0_15px_rgba\(56\,189\,248\,0\.3\)\] { @apply shadow-xs; }
+    .shadow-\[0_0_20px_rgba\(56\,189\,248\,0\.5\)\] { @apply shadow-sm; }
     .shadow-\[10px_0_30px_rgba\(15\,23\,42\,0\.5\)\] { @apply shadow-none; }
     
-    .focus\:border-\[\#38BDF8\]:focus { @apply focus:border-emerald-600 dark:focus:border-emerald-500; }
-    .focus\:ring-\[\#38BDF8\]\/30:focus { @apply focus:ring-emerald-600/30 dark:focus:ring-emerald-500/30; }
+    .focus\:border-\[\#38BDF8\]:focus { @apply focus:border-emerald-500; }
+    .focus\:ring-\[\#38BDF8\]\/30:focus { @apply focus:ring-emerald-500/20; }
     .focus\:ring-offset-\[\#0F172A\]:focus { @apply focus:ring-offset-zinc-50 dark:focus:ring-offset-zinc-950; }
 }
 

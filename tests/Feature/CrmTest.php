@@ -228,4 +228,93 @@ class CrmTest extends TestCase
         $sub->refresh();
         $this->assertNotNull($sub->terakhir_diingatkan_at);
     }
+
+    public function test_csv_exports_function_properly(): void
+    {
+        Lead::create([
+            'nama_usaha' => 'Export Lead UMKM',
+            'kontak_wa' => '081234560000',
+            'status' => 'belum_dihubungi',
+            'paket_diminati' => 'landing_page',
+        ]);
+
+        $response = $this->actingAs($this->admin)->get(route('export.leads'));
+        $response->assertStatus(200);
+        $response->assertHeader('content-type', 'text/csv; charset=UTF-8');
+        $this->assertStringContainsString('Export Lead UMKM', $response->streamedContent());
+    }
+
+    public function test_invoices_and_receipts_render_properly(): void
+    {
+        $lead = Lead::create([
+            'nama_usaha' => 'Klien Invoice Test',
+            'kontak_wa' => '081288887777',
+            'status' => 'deal',
+            'paket_diminati' => 'landing_page',
+        ]);
+
+        $project = Project::create([
+            'lead_id' => $lead->id,
+            'nama_project' => 'Website Klien Invoice',
+            'paket' => 'landing_page',
+            'harga' => 499000,
+            'status' => 'dikerjakan',
+        ]);
+
+        $payment = Payment::create([
+            'project_id' => $project->id,
+            'jenis' => 'dp',
+            'jumlah' => 250000,
+            'status' => 'lunas',
+            'tanggal' => now()->toDateString(),
+        ]);
+
+        // 1. Test Project Invoice view
+        $invResponse = $this->actingAs($this->admin)->get(route('invoices.project', $project));
+        $invResponse->assertStatus(200);
+        $invResponse->assertSee('INVOICE TAGIHAN');
+        $invResponse->assertSee('Klien Invoice Test');
+        $invResponse->assertSee('499.000');
+
+        // 2. Test Kwitansi view with Terbilang
+        $receiptResponse = $this->actingAs($this->admin)->get(route('invoices.receipt', $payment));
+        $receiptResponse->assertStatus(200);
+        $receiptResponse->assertSee('KWITANSI RESMI');
+        $receiptResponse->assertSee('Dua Ratus Lima Puluh Ribu Rupiah');
+    }
+
+    public function test_kanban_ajax_status_update_and_quick_snooze(): void
+    {
+        $lead = Lead::create([
+            'nama_usaha' => 'Lead Kanban Test',
+            'kontak_wa' => '081299990000',
+            'status' => 'belum_dihubungi',
+            'paket_diminati' => 'company_profile',
+        ]);
+
+        // AJAX update status to 'nego'
+        $response = $this->actingAs($this->admin)->postJson(route('leads.kanban-status', $lead), [
+            'status' => 'nego',
+        ]);
+
+        $response->assertStatus(200);
+        $response->assertJson(['success' => true]);
+        $lead->refresh();
+        $this->assertEquals('nego', $lead->status);
+
+        // Quick Snooze +3 days
+        $snoozeResponse = $this->actingAs($this->admin)->postJson(route('leads.quick-followup', $lead), [
+            'days' => '3',
+        ]);
+        $snoozeResponse->assertStatus(200);
+        $lead->refresh();
+        $this->assertEquals(now()->addDays(3)->toDateString(), $lead->follow_up_date->toDateString());
+    }
+
+    public function test_activity_logs_are_recorded_and_viewable(): void
+    {
+        $response = $this->actingAs($this->admin)->get(route('activity-logs.index'));
+        $response->assertStatus(200);
+        $response->assertSee('Audit Trail &amp; Activity Log', false);
+    }
 }

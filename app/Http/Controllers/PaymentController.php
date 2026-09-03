@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Payment;
 use App\Models\Project;
+use App\Services\ActivityLogger;
 use Illuminate\Http\Request;
 
 class PaymentController extends Controller
@@ -46,6 +47,9 @@ class PaymentController extends Controller
         ]);
 
         $payment = Payment::create($validated);
+        $project = $payment->project;
+
+        ActivityLogger::log('payment_created', "Mencatat pembayaran {$payment->jenis_label} sebesar Rp " . number_format($payment->jumlah, 0, ',', '.') . " untuk project {$project?->nama_project}", 'Payment', $payment->id);
 
         return back()->with('success', "Pembayaran Rp " . number_format($payment->jumlah, 0, ',', '.') . " berhasil dicatat.");
     }
@@ -59,7 +63,10 @@ class PaymentController extends Controller
             'status' => 'required|in:pending,lunas',
         ]);
 
+        $oldStatus = $payment->status;
         $payment->update(['status' => $request->status]);
+
+        ActivityLogger::log('payment_status_changed', "Status pembayaran ID #{$payment->id} diubah dari {$oldStatus} menjadi {$payment->status}", 'Payment', $payment->id);
 
         return back()->with('success', "Status pembayaran berhasil diubah menjadi: " . strtoupper($payment->status));
     }
@@ -69,7 +76,11 @@ class PaymentController extends Controller
      */
     public function destroy(Payment $payment)
     {
+        $id = $payment->id;
+        $jumlah = $payment->jumlah;
         $payment->delete();
+
+        ActivityLogger::log('payment_deleted', "Menghapus data pembayaran ID #{$id} senilai Rp " . number_format($jumlah, 0, ',', '.'), 'Payment', $id);
 
         return back()->with('success', "Data pembayaran berhasil dihapus.");
     }

@@ -1,7 +1,5 @@
 <x-app-layout>
-    <div class="py-6 sm:py-8 bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-50 min-h-screen transition-colors duration-300"
-         x-data="{ openCreateModal: false }">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
+    <div class="space-y-6 w-full" x-data="{ openCreateModal: false }">
 
             <!-- Flash Alert -->
             <x-flash />
@@ -50,9 +48,10 @@
                 </div>
             </div>
 
-            <!-- Maintenance Subscriptions Table Card -->
-            <div class="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200/80 dark:border-zinc-800 shadow-sm overflow-hidden">
-                <div class="overflow-x-auto">
+            <!-- Maintenance Subscriptions Table Card (Desktop: Table, Mobile: Cards) -->
+            <div class="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200/80 dark:border-zinc-800 shadow-xs overflow-hidden">
+                <!-- Desktop Table (md:block) -->
+                <div class="hidden md:block overflow-x-auto">
                     <table class="w-full text-left text-sm">
                         <thead class="bg-zinc-50/70 dark:bg-zinc-950/50 border-b border-zinc-200/80 dark:border-zinc-800 text-[11px] font-bold font-mono uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
                             <tr>
@@ -117,14 +116,18 @@
                                     <!-- Actions -->
                                     <td class="px-6 py-4 text-right">
                                         <div class="flex items-center justify-end gap-2">
-                                            <!-- Send Reminder Button -->
-                                            <form method="POST" action="{{ route('maintenance.reminder', $sub) }}" onsubmit="return confirm('Kirim pesan pengingat tagihan maintenance via WhatsApp ke {{ $sub->lead->nama_usaha }}?');">
-                                                @csrf
-                                                <button type="submit" class="px-2.5 py-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400 text-[11px] font-bold hover:bg-emerald-100 flex items-center gap-1">
-                                                    <span class="material-symbols-outlined text-[14px]">send</span>
-                                                    <span>Kirim Reminder WA</span>
-                                                </button>
-                                            </form>
+                                            @php
+                                                $waRemindText = rawurlencode("Halo Kak {$sub->lead->nama_kontak},\n\nKami dari RZ Digital Creative menginfokan bahwa langganan Maintenance Website *{$sub->lead->nama_usaha}* akan jatuh tempo pada *{$sub->tanggal_jatuh_tempo_berikutnya?->format('d M Y')}* (Rp " . number_format($sub->harga_bulanan, 0, ',', '.') . ").\n\nTerima kasih! 🙏");
+                                                $waPhone = preg_replace('/[^0-9]/', '', $sub->lead->kontak_wa);
+                                            @endphp
+                                            <a href="https://wa.me/{{ $waPhone }}?text={{ $waRemindText }}" target="_blank" class="px-2.5 py-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400 text-[11px] font-bold hover:bg-emerald-100 flex items-center gap-1">
+                                                <span class="material-symbols-outlined text-[14px]">chat</span>
+                                                <span>WhatsApp</span>
+                                            </a>
+
+                                            <a href="{{ route('invoices.maintenance', $sub) }}" target="_blank" class="p-1.5 rounded-lg text-zinc-400 hover:text-emerald-600 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors" title="Invoice Maintenance">
+                                                <span class="material-symbols-outlined text-[18px]">receipt</span>
+                                            </a>
 
                                             <!-- Toggle Status -->
                                             <form method="POST" action="{{ route('maintenance.toggle', $sub) }}">
@@ -148,13 +151,78 @@
                     </table>
                 </div>
 
+                <!-- Mobile Cards (md:hidden) -->
+                <div class="md:hidden divide-y divide-zinc-100 dark:divide-zinc-800/60">
+                    @forelse($subscriptions as $sub)
+                        @php
+                            $isDueSoon = $sub->isReminderDue();
+                            $waRemindText = rawurlencode("Halo Kak {$sub->lead->nama_kontak},\n\nKami dari RZ Digital Creative menginfokan bahwa langganan Maintenance Website *{$sub->lead->nama_usaha}* akan jatuh tempo pada *{$sub->tanggal_jatuh_tempo_berikutnya?->format('d M Y')}* (Rp " . number_format($sub->harga_bulanan, 0, ',', '.') . ").\n\nTerima kasih! 🙏");
+                            $waPhone = preg_replace('/[^0-9]/', '', $sub->lead->kontak_wa);
+                        @endphp
+                        <div class="p-4 space-y-3">
+                            <div class="flex items-start justify-between gap-2">
+                                <div>
+                                    <a href="{{ route('leads.show', $sub->lead) }}" class="font-bold text-xs text-zinc-900 dark:text-white">
+                                        {{ $sub->lead->nama_usaha }}
+                                    </a>
+                                    <p class="text-[11px] text-zinc-500 mt-0.5">{{ $sub->lead->kontak_wa }}</p>
+                                </div>
+                                <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider {{ $sub->status === 'aktif' ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-200/50' : 'bg-zinc-100 text-zinc-500' }}">
+                                    {{ strtoupper($sub->status) }}
+                                </span>
+                            </div>
+
+                            <div class="flex items-center justify-between text-xs">
+                                <span class="text-zinc-500">Tarif Bulanan</span>
+                                <span class="font-mono font-bold text-zinc-900 dark:text-white">
+                                    Rp {{ number_format($sub->harga_bulanan, 0, ',', '.') }}/bln
+                                </span>
+                            </div>
+
+                            <div class="flex items-center justify-between text-xs">
+                                <span class="text-zinc-500">Jatuh Tempo</span>
+                                <div class="flex items-center gap-1 font-mono font-semibold {{ $isDueSoon ? 'text-amber-600' : 'text-zinc-700 dark:text-zinc-300' }}">
+                                    <span>{{ $sub->tanggal_jatuh_tempo_berikutnya ? $sub->tanggal_jatuh_tempo_berikutnya->format('d M Y') : '-' }}</span>
+                                    @if($isDueSoon)
+                                        <span class="px-1 py-0.2 rounded text-[8px] bg-amber-500 text-white font-bold uppercase">H-3</span>
+                                    @endif
+                                </div>
+                            </div>
+
+                            <div class="flex items-center justify-between pt-2 border-t border-zinc-100 dark:border-zinc-800/80 text-xs">
+                                <a href="https://wa.me/{{ $waPhone }}?text={{ $waRemindText }}" target="_blank"
+                                   class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-emerald-600 text-white font-bold text-[11px]">
+                                    <span class="material-symbols-outlined text-[14px]">chat</span>
+                                    <span>Reminder WA</span>
+                                </a>
+
+                                <div class="flex items-center gap-1.5">
+                                    <a href="{{ route('invoices.maintenance', $sub) }}" target="_blank" class="px-2.5 py-1.5 rounded-lg bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 text-[11px] font-bold">
+                                        Invoice
+                                    </a>
+                                    <form method="POST" action="{{ route('maintenance.toggle', $sub) }}">
+                                        @csrf
+                                        @method('PATCH')
+                                        <button type="submit" class="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200">
+                                            <span class="material-symbols-outlined text-[18px]">{{ $sub->status === 'aktif' ? 'toggle_on' : 'toggle_off' }}</span>
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    @empty
+                        <div class="p-6 text-center text-zinc-400 text-xs">
+                            Belum ada langganan maintenance bulanan.
+                        </div>
+                    @endforelse
+                </div>
+
                 @if($subscriptions->hasPages())
-                    <div class="px-6 py-4 border-t border-zinc-100 dark:border-zinc-800">
+                    <div class="p-4 border-t border-zinc-200/80 dark:border-zinc-800">
                         {{ $subscriptions->links() }}
                     </div>
                 @endif
             </div>
 
         </div>
-    </div>
 </x-app-layout>

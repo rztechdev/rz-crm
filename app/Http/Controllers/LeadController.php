@@ -5,15 +5,19 @@ namespace App\Http\Controllers;
 use App\Models\Lead;
 use App\Models\Project;
 use App\Models\MessageLog;
+use App\Services\ActivityLogger;
 use Illuminate\Http\Request;
+use Carbon\Carbon;
 
 class LeadController extends Controller
 {
     /**
-     * Display a listing of leads with filters.
+     * Display a listing of leads with filters (Table List & Kanban View).
      */
     public function index(Request $request)
     {
+        $viewMode = $request->get('view', 'kanban'); // Default to 'kanban'
+
         $query = Lead::with(['projects', 'activeMaintenanceSubscription']);
 
         // Filter by Status
@@ -62,7 +66,21 @@ class LeadController extends Controller
             $query->latest();
         }
 
-        $leads = $query->paginate(15)->withQueryString();
+        // For Kanban view, get all filtered leads grouped by status
+        if ($viewMode === 'kanban') {
+            $allKanbanLeads = $query->get();
+            $kanbanColumns = [
+                'belum_dihubungi' => $allKanbanLeads->where('status', 'belum_dihubungi'),
+                'sudah_chat' => $allKanbanLeads->where('status', 'sudah_chat'),
+                'nego' => $allKanbanLeads->where('status', 'nego'),
+                'deal' => $allKanbanLeads->where('status', 'deal'),
+                'tidak_lanjut' => $allKanbanLeads->where('status', 'tidak_lanjut'),
+            ];
+            $leads = $query->paginate(15)->withQueryString();
+        } else {
+            $kanbanColumns = [];
+            $leads = $query->paginate(15)->withQueryString();
+        }
 
         $statusCounts = [
             'all' => Lead::count(),
@@ -74,7 +92,7 @@ class LeadController extends Controller
             'overdue' => Lead::whereNotNull('follow_up_date')->where('follow_up_date', '<', now()->toDateString())->whereNotIn('status', ['deal', 'tidak_lanjut'])->count(),
         ];
 
-        return view('leads.index', compact('leads', 'statusCounts'));
+        return view('leads.index', compact('leads', 'statusCounts', 'viewMode', 'kanbanColumns'));
     }
 
     /**
@@ -94,6 +112,8 @@ class LeadController extends Controller
         ]);
 
         $lead = Lead::create($validated);
+
+        ActivityLogger::log('lead_created', "Menambahkan prospek baru: {$lead->nama_usaha} ({$lead->paket_label})", 'Lead', $lead->id);
 
         // If directly created with Deal status, automatically create the project
         if ($lead->status === 'deal') {
@@ -132,12 +152,73 @@ class LeadController extends Controller
         $oldStatus = $lead->status;
         $lead->update($validated);
 
+        ActivityLogger::log('lead_updated', "Memperbarui data prospek: {$lead->nama_usaha}", 'Lead', $lead->id);
+
         // If status changed to Deal and no project exists yet, auto-create project
         if ($oldStatus !== 'deal' && $lead->status === 'deal' && $lead->projects()->count() === 0) {
             $this->createInitialProjectForDeal($lead);
         }
 
         return back()->with('success', "Data lead {$lead->nama_usaha} berhasil diperbarui.");
+    }
+
+    /**
+     * Update Lead Status via Kanban AJAX Drag & Drop.
+     */
+    public function updateStatusAjax(Request $request, Lead $lead)
+    {
+        $request->validate([
+            'status' => 'required|in:belum_dihubungi,sudah_chat,nego,deal,tidak_lanjut',
+        ]);
+
+        $oldStatus = $lead->status;
+        $newStatus = $request->status;
+
+        $lead->update(['status' => $newStatus]);
+
+        ActivityLogger::log('lead_status_changed', "Mengubah status prospek {$lead->nama_usaha} dari {$oldStatus} menjadi {$newStatus}", 'Lead', $lead->id);
+
+        // Auto-create project if moved to Deal
+        $createdProject = null;
+        if ($oldStatus !== 'deal' && $newStatus === 'deal' && $lead->projects()->count() === 0) {
+            $createdProject = $this->createInitialProjectForDeal($lead);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => "Status {$lead->nama_usaha} berhasil diubah ke {$lead->status_label}.",
+            'lead' => $lead,
+            'project_id' => $createdProject?->id,
+        ]);
+    }
+
+    /**
+     * Quick Snooze / Follow-Up Date Updater.
+     */
+    public function quickFollowUp(Request $request, Lead $lead)
+    {
+        $action = $request->get('days', '1'); // 1, 3, 7, today, clear
+
+        if ($action === 'clear') {
+            $lead->update(['follow_up_date' => null]);
+            $msg = "Jadwal follow-up {$lead->nama_usaha} dibersihkan.";
+        } elseif ($action === 'today') {
+            $lead->update(['follow_up_date' => now()->toDateString()]);
+            $msg = "Jadwal follow-up {$lead->nama_usaha} disetel ke HARI INI.";
+        } else {
+            $days = (int) $action;
+            $newDate = now()->addDays($days)->toDateString();
+            $lead->update(['follow_up_date' => $newDate]);
+            $msg = "Jadwal follow-up {$lead->nama_usaha} diundur +{$days} hari (" . Carbon::parse($newDate)->format('d M Y') . ").";
+        }
+
+        ActivityLogger::log('lead_followup_snooze', $msg, 'Lead', $lead->id);
+
+        if ($request->wantsJson()) {
+            return response()->json(['success' => true, 'message' => $msg, 'date' => $lead->follow_up_date?->format('d M Y')]);
+        }
+
+        return back()->with('success', $msg);
     }
 
     /**
@@ -152,6 +233,8 @@ class LeadController extends Controller
 
         $project = $this->createInitialProjectForDeal($lead, $request->get('nama_project'), $request->get('harga'));
 
+        ActivityLogger::log('lead_converted', "Mengonversi prospek {$lead->nama_usaha} menjadi Deal (Project ID #{$project->id})", 'Lead', $lead->id);
+
         return redirect()->route('projects.show', $project)->with('success', "🎉 Selamat! Lead berhasil ditandai Deal dan Project baru telah dibuat.");
     }
 
@@ -161,7 +244,10 @@ class LeadController extends Controller
     public function destroy(Lead $lead)
     {
         $nama = $lead->nama_usaha;
+        $id = $lead->id;
         $lead->delete();
+
+        ActivityLogger::log('lead_deleted', "Menghapus prospek {$nama}", 'Lead', $id);
 
         return redirect()->route('leads.index')->with('success', "Lead {$nama} berhasil dihapus.");
     }
@@ -175,7 +261,7 @@ class LeadController extends Controller
         $packages = config('flustra.packages', []);
         $defaultPrice = $packages[$packageKey]['price'] ?? 499000;
 
-        return Project::create([
+        $project = Project::create([
             'lead_id' => $lead->id,
             'nama_project' => $customProjectName ?: "Website {$lead->nama_usaha}",
             'paket' => $packageKey,
@@ -184,5 +270,9 @@ class LeadController extends Controller
             'tanggal_mulai' => now()->toDateString(),
             'catatan' => "Dikonversi otomatis dari Lead ID #{$lead->id}.",
         ]);
+
+        ActivityLogger::log('project_created', "Project otomatis dibuat untuk klien {$lead->nama_usaha} (Paket: {$project->paket_label})", 'Project', $project->id);
+
+        return $project;
     }
 }

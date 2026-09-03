@@ -1,6 +1,5 @@
 <x-app-layout>
-    <div class="py-6 sm:py-8 bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-50 min-h-screen transition-colors duration-300">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
+    <div class="space-y-6 w-full">
 
             <!-- Flash Alert -->
             <x-flash />
@@ -8,9 +7,24 @@
             <!-- Header -->
             <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div>
-                    <h1 class="text-2xl sm:text-3xl font-extrabold text-zinc-900 dark:text-white tracking-tight">Riwayat Pesan Klien</h1>
-                    <p class="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 mt-1">Seluruh riwayat obrolan, notifikasi otomatis, dan pesan masuk dari klien RZ Digital Creative.</p>
+                    <h1 class="text-2xl sm:text-3xl font-extrabold text-zinc-900 dark:text-white tracking-tight">Riwayat Pesan WhatsApp</h1>
+                    <p class="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 mt-1">Seluruh log percakapan, template pesan, dan riwayat interaksi WhatsApp klien.</p>
                 </div>
+            </div>
+
+            <!-- Gateway Status Notice (Direct WA Mode Active) -->
+            <div class="rounded-xl border border-sky-200 dark:border-sky-900/50 bg-sky-50/50 dark:bg-sky-950/20 p-4 text-xs text-sky-900 dark:text-sky-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <div class="flex items-start sm:items-center gap-3">
+                    <span class="material-symbols-outlined text-[22px] text-sky-600 dark:text-sky-400 shrink-0">info</span>
+                    <div>
+                        <span class="font-bold text-sm">Mode Direct WhatsApp (0 MB RAM / Tanpa Gateway) Aktif</span>
+                        <p class="text-[11px] text-sky-700/80 dark:text-sky-400/80 mt-0.5">Seluruh tombol WhatsApp di CRM ini langsung membuka chat resmi ke klien via aplikasi WhatsApp tanpa perlu langganan API berbayar atau background worker server.</p>
+                    </div>
+                </div>
+                <button @click="$dispatch('open-quick-snippets')" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-sky-300 dark:border-sky-800 text-xs font-semibold bg-white dark:bg-zinc-900 text-sky-700 dark:text-sky-300 hover:bg-sky-50 dark:hover:bg-zinc-800 transition-colors whitespace-nowrap">
+                    <span class="material-symbols-outlined text-[16px]">content_paste</span>
+                    <span>Buka Template Chat</span>
+                </button>
             </div>
 
             <!-- Filter Row -->
@@ -41,9 +55,10 @@
                 </div>
             </form>
 
-            <!-- Messages Table Card -->
-            <div class="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200/80 dark:border-zinc-800 shadow-sm overflow-hidden">
-                <div class="overflow-x-auto">
+            <!-- Messages Table Card (Desktop: Table, Mobile: Cards) -->
+            <div class="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200/80 dark:border-zinc-800 shadow-xs overflow-hidden">
+                <!-- Desktop Table (md:block) -->
+                <div class="hidden md:block overflow-x-auto">
                     <table class="w-full text-left text-sm">
                         <thead class="bg-zinc-50/70 dark:bg-zinc-950/50 border-b border-zinc-200/80 dark:border-zinc-800 text-[11px] font-bold font-mono uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
                             <tr>
@@ -111,13 +126,56 @@
                     </table>
                 </div>
 
+                <!-- Mobile Cards (md:hidden) -->
+                <div class="md:hidden divide-y divide-zinc-100 dark:divide-zinc-800/60">
+                    @forelse($messages as $msg)
+                        <div class="p-4 space-y-2.5">
+                            <div class="flex items-center justify-between">
+                                <span class="inline-flex items-center gap-1 text-[11px] font-bold {{ $msg->arah === 'keluar' ? 'text-emerald-600' : 'text-sky-600' }}">
+                                    <span class="material-symbols-outlined text-[14px]">{{ $msg->arah === 'keluar' ? 'arrow_outward' : 'call_received' }}</span>
+                                    <span>{{ $msg->arah === 'keluar' ? 'Pesan Keluar' : 'Pesan Masuk' }}</span>
+                                </span>
+                                <span class="font-mono text-[10px] text-zinc-400">{{ $msg->created_at->format('d M H:i') }}</span>
+                            </div>
+
+                            <div>
+                                @if($msg->lead)
+                                    <a href="{{ route('leads.show', $msg->lead) }}" class="font-bold text-xs text-zinc-900 dark:text-white">
+                                        {{ $msg->lead->nama_usaha }}
+                                    </a>
+                                @else
+                                    <span class="text-xs text-zinc-500 font-medium">Klien Belum Terdaftar</span>
+                                @endif
+                                <p class="text-[11px] font-mono text-zinc-400">{{ $msg->kontak_wa }}</p>
+                            </div>
+
+                            <p class="text-xs text-zinc-700 dark:text-zinc-300 bg-zinc-50 dark:bg-zinc-950 p-2.5 rounded-lg border border-zinc-100 dark:border-zinc-800 leading-relaxed">
+                                {{ $msg->isi_pesan }}
+                            </p>
+
+                            <div class="flex items-center justify-between text-[10px]">
+                                <span class="px-2 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-600 font-mono uppercase">
+                                    {{ str_replace('_', ' ', $msg->tipe_pesan) }}
+                                </span>
+                                <a href="https://wa.me/{{ preg_replace('/[^0-9]/', '', $msg->kontak_wa) }}" target="_blank" class="inline-flex items-center gap-1 font-bold text-emerald-600">
+                                    <span class="material-symbols-outlined text-[14px]">chat</span>
+                                    <span>Buka WA</span>
+                                </a>
+                            </div>
+                        </div>
+                    @empty
+                        <div class="p-6 text-center text-zinc-400 text-xs">
+                            Belum ada riwayat pesan WhatsApp.
+                        </div>
+                    @endforelse
+                </div>
+
                 @if($messages->hasPages())
-                    <div class="px-6 py-4 border-t border-zinc-100 dark:border-zinc-800">
+                    <div class="p-4 border-t border-zinc-200/80 dark:border-zinc-800">
                         {{ $messages->links() }}
                     </div>
                 @endif
             </div>
 
         </div>
-    </div>
 </x-app-layout>
