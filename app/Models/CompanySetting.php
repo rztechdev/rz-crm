@@ -65,8 +65,8 @@ class CompanySetting extends Model
                 'wa_api_url' => 'https://wa.flustra.id/api/v1/messages/text',
                 'wa_api_key' => (app()->environment('testing') || app()->runningUnitTests() || defined('PHPUNIT_COMPOSER_INSTALL')) ? null : 'fwa_inms6r8v.AudVimF78NFPbkU0gDUHgmJiHxCqaJ1f4veMqrh0',
                 'wa_sender_phone' => '0823-1828-0376',
-                'portal_sync_url' => 'http://localhost:8021/api/internal/v1/sync-client-project',
-                'portal_sync_secret' => 'rz_portal_sync_secret_key_2026',
+                'portal_sync_url' => config('services.portal.sync_url', 'https://portalclient.rzdigitalcreative.my.id/api/internal/v1/sync-client-project'),
+                'portal_sync_secret' => config('services.portal.sync_secret', 'rz_portal_sync_secret_key_2026'),
             ]);
         } else {
             // Self-heal if gateway fields are empty in existing record (except in testing)
@@ -75,8 +75,8 @@ class CompanySetting extends Model
             if (empty($setting->wa_api_url)) $updates['wa_api_url'] = 'https://wa.flustra.id/api/v1/messages/text';
             if (empty($setting->wa_api_key) && !$isTest) $updates['wa_api_key'] = 'fwa_inms6r8v.AudVimF78NFPbkU0gDUHgmJiHxCqaJ1f4veMqrh0';
             if (empty($setting->wa_sender_phone)) $updates['wa_sender_phone'] = '0823-1828-0376';
-            if (empty($setting->portal_sync_url)) $updates['portal_sync_url'] = 'http://localhost:8021/api/internal/v1/sync-client-project';
-            if (empty($setting->portal_sync_secret)) $updates['portal_sync_secret'] = 'rz_portal_sync_secret_key_2026';
+            if (empty($setting->portal_sync_url)) $updates['portal_sync_url'] = config('services.portal.sync_url', 'https://portalclient.rzdigitalcreative.my.id/api/internal/v1/sync-client-project');
+            if (empty($setting->portal_sync_secret)) $updates['portal_sync_secret'] = config('services.portal.sync_secret', 'rz_portal_sync_secret_key_2026');
             if (!empty($updates)) {
                 $setting->update($updates);
             }

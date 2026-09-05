@@ -17,10 +17,10 @@ class PortalSyncService
     {
         try {
             $settings = \App\Models\CompanySetting::get();
-            $this->syncUrl = !empty($settings->portal_sync_url) ? $settings->portal_sync_url : config('services.portal.sync_url', 'http://localhost:8021/api/internal/v1/sync-client-project');
+            $this->syncUrl = !empty($settings->portal_sync_url) ? $settings->portal_sync_url : config('services.portal.sync_url', 'https://portalclient.rzdigitalcreative.my.id/api/internal/v1/sync-client-project');
             $this->secretToken = !empty($settings->portal_sync_secret) ? $settings->portal_sync_secret : config('services.portal.sync_secret', 'rz_portal_sync_secret_key_2026');
         } catch (\Throwable $e) {
-            $this->syncUrl = config('services.portal.sync_url', 'http://localhost:8021/api/internal/v1/sync-client-project');
+            $this->syncUrl = config('services.portal.sync_url', 'https://portalclient.rzdigitalcreative.my.id/api/internal/v1/sync-client-project');
             $this->secretToken = config('services.portal.sync_secret', 'rz_portal_sync_secret_key_2026');
         }
     }
