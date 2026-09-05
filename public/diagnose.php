@@ -1,109 +1,86 @@
 <?php
+
 /**
- * Raw PHP Diagnostic - tanpa Laravel
- * HAPUS SETELAH SELESAI DEBUG
+ * Diagnostic Script - HAPUS SETELAH SELESAI DEBUG
+ * Akses via: https://crm.rzdigitalcreative.my.id/diagnose.php
  */
 
-header('Content-Type: text/plain; charset=utf-8');
-error_reporting(E_ALL);
-ini_set('display_errors', 1);
+// Muat Laravel
+require __DIR__ . '/vendor/autoload.php';
+$app = require_once __DIR__ . '/bootstrap/app.php';
+$kernel = $app->make(Illuminate\Contracts\Http\Kernel::class);
 
-echo "=== RAW PHP DIAGNOSTIC ===\n\n";
+echo "<h2>🔍 CRM Diagnostic</h2><pre>";
 
-// 1. PHP Version
-echo "PHP Version: " . phpversion() . "\n";
-
-// 2. Cek .env ada
-echo "\n=== ENV FILE ===\n";
-$envFile = __DIR__ . '/../.env';
-$envProdFile = __DIR__ . '/../.env.production';
-echo ".env exists: " . (file_exists($envFile) ? "YES" : "NO") . "\n";
-echo ".env.production exists: " . (file_exists($envProdFile) ? "YES" : "NO") . "\n";
-
-// 3. Cek vendor/autoload.php ada
-echo "\n=== VENDOR ===\n";
-$autoload = __DIR__ . '/../vendor/autoload.php';
-echo "vendor/autoload.php exists: " . (file_exists($autoload) ? "YES" : "NO") . "\n";
-
-// 4. Cek storage writable
-echo "\n=== STORAGE ===\n";
-$storageDirs = [
-    'storage/logs',
-    'storage/framework/views',
-    'storage/framework/cache',
-    'storage/framework/sessions',
-];
-foreach ($storageDirs as $dir) {
-    $path = __DIR__ . '/../' . $dir;
-    $exists = is_dir($path);
-    $writable = $exists ? is_writable($path) : false;
-    echo "{$dir}: " . ($exists ? "exists" : "MISSING") . " | " . ($writable ? "writable" : "NOT writable") . "\n";
-}
-
-// 5. Cek bootstrap/cache writable
-echo "\n=== BOOTSTRAP CACHE ===\n";
-$cacheDir = __DIR__ . '/../bootstrap/cache';
-echo "bootstrap/cache writable: " . (is_writable($cacheDir) ? "YES" : "NO") . "\n";
-$cacheFiles = ['config.php', 'routes-v7.php', 'events.php', 'packages.php', 'services.php'];
-foreach ($cacheFiles as $f) {
-    $fp = $cacheDir . '/' . $f;
-    echo "  {$f}: " . (file_exists($fp) ? filesize($fp) . " bytes" : "not cached") . "\n";
-}
-
-// 6. Cek error log terakhir
-echo "\n=== RECENT LOG (last 50 lines) ===\n";
-$logFile = __DIR__ . '/../storage/logs/laravel.log';
-if (file_exists($logFile)) {
-    $size = round(filesize($logFile) / 1024 / 1024, 2);
-    echo "Log size: {$size} MB\n\n";
-    $lines = file($logFile);
-    $lastLines = array_slice($lines, -50);
-    echo implode("", $lastLines);
-} else {
-    echo "No laravel.log found\n";
-    // Cek daily logs
-    $logDir = __DIR__ . '/../storage/logs/';
-    $files = glob($logDir . 'laravel-*.log');
-    if (!empty($files)) {
-        $latest = end($files);
-        echo "Found daily log: " . basename($latest) . "\n";
-        $lines = file($latest);
-        $lastLines = array_slice($lines, -50);
-        echo implode("", $lastLines);
-    } else {
-        echo "No log files found at all.\n";
-    }
-}
-
-// 7. Coba load Laravel dan tangkap error
-echo "\n\n=== LARAVEL BOOTSTRAP TEST ===\n";
+// 1. Cek koneksi database
+echo "\n=== DATABASE ===\n";
 try {
-    require $autoload;
-    echo "✅ Autoload OK\n";
-    
-    $app = require_once __DIR__ . '/../bootstrap/app.php';
-    echo "✅ App bootstrap OK\n";
-    
-    $kernel = $app->make(Illuminate\Contracts\Http\Kernel::class);
-    echo "✅ Kernel OK\n";
-    
-    // Cek DB
     $pdo = $app->make('db')->connection()->getPdo();
     echo "✅ Database connected: " . $pdo->getAttribute(PDO::ATTR_DRIVER_NAME) . "\n";
-    
-    // Cek tabel kritis
-    $tables = ['users', 'leads', 'projects', 'activity_logs', 'message_logs', 
-               'project_subscriptions', 'company_settings', 'maintenances'];
-    foreach ($tables as $t) {
-        try {
-            $count = $app->make('db')->table($t)->count();
-            echo "  ✅ {$t}: {$count} rows\n";
-        } catch (\Exception $e) {
-            echo "  ❌ {$t}: " . $e->getMessage() . "\n";
+} catch (\Exception $e) {
+    echo "❌ Database error: " . $e->getMessage() . "\n";
+}
+
+// 2. Cek tabel-tabel kritis
+echo "\n=== TABLES ===\n";
+$tables = ['users', 'leads', 'projects', 'payments', 'activity_logs', 'message_logs',
+           'project_subscriptions', 'company_settings', 'maintenances'];
+foreach ($tables as $table) {
+    try {
+        $count = $app->make('db')->table($table)->count();
+        echo "✅ {$table}: {$count} rows\n";
+    } catch (\Exception $e) {
+        echo "❌ {$table}: " . $e->getMessage() . "\n";
+    }
+}
+
+// 3. Cek pending migrations
+echo "\n=== MIGRATIONS ===\n";
+try {
+    $migrator = $app->make('migrator');
+    $migrator->setConnection(null);
+    $ran = $migrator->getRepository()->getRan();
+    $allFiles = $migrator->getMigrationFiles($app->databasePath('migrations'));
+    $pending = array_diff(array_keys($allFiles), $ran);
+    if (empty($pending)) {
+        echo "✅ No pending migrations\n";
+    } else {
+        echo "⚠️ Pending migrations:\n";
+        foreach ($pending as $m) {
+            echo "   - {$m}\n";
         }
     }
-} catch (\Throwable $e) {
-    echo "❌ ERROR: " . $e->getMessage() . "\n";
-    echo "File: " . $e->getFile() . ":" . $e->getLine() . "\n";
-    echo "Trace:\n" . $e->getTraceAsString() . "\n";
+} catch (\Exception $e) {
+    echo "❌ Migration check error: " . $e->getMessage() . "\n";
 }
+
+// 4. Cek cache
+echo "\n=== CACHE / CONFIG ===\n";
+$cacheFiles = ['config.php', 'routes-v7.php', 'events.php'];
+foreach ($cacheFiles as $f) {
+    $path = $app->bootstrapPath("cache/{$f}");
+    echo (file_exists($path) ? "✅" : "⚠️  missing") . " bootstrap/cache/{$f}\n";
+}
+
+// 5. Cek storage writable
+echo "\n=== STORAGE ===\n";
+$dirs = ['framework/views', 'framework/cache', 'framework/sessions', 'logs'];
+foreach ($dirs as $d) {
+    $path = $app->storagePath($d);
+    echo (is_writable($path) ? "✅ writable" : "❌ NOT writable") . " storage/{$d}\n";
+}
+
+// 6. Cek error terakhir di log
+echo "\n=== RECENT LOG ERRORS ===\n";
+$logFile = $app->storagePath('logs/laravel.log');
+if (file_exists($logFile)) {
+    $size = round(filesize($logFile) / 1024 / 1024, 2);
+    echo "Log file size: {$size} MB\n";
+    $lines = file($logFile);
+    $lastLines = array_slice($lines, -30);
+    echo implode("", $lastLines);
+} else {
+    echo "No log file found.\n";
+}
+
+echo "</pre>";
