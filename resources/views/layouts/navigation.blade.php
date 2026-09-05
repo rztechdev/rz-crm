@@ -66,7 +66,11 @@
         <!-- 5b. Project Subscriptions (Masa Berlaku) -->
         @php
             $isSubscriptions = request()->routeIs('subscriptions.*');
-            $expiringSoonCount = \App\Models\ProjectSubscription::whereIn('status', ['akan_expired', 'expired'])->count();
+            try {
+                $expiringSoonCount = \App\Models\ProjectSubscription::whereIn('status', ['akan_expired', 'expired'])->count();
+            } catch (\Exception $e) {
+                $expiringSoonCount = 0;
+            }
         @endphp
         <a href="{{ route('subscriptions.index') }}"
            class="flex items-center px-3.5 py-2.5 justify-start gap-3 rounded-lg text-xs transition-colors duration-150 group {{ $isSubscriptions ? 'bg-emerald-600 text-white font-bold shadow-xs' : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-900/70 hover:text-zinc-900 dark:hover:text-zinc-100 font-medium' }}">
