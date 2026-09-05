@@ -1,12 +1,15 @@
 <x-app-layout>
     <div class="py-6 sm:py-8 bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-50 min-h-screen transition-colors duration-300"
-         x-data="{ 
+         x-data="{
+            openEditModal: false,
             openPaymentModal: false,
             openStatusModal: false,
+            editHarga: {{ (int)$project->harga }},
+            totalPaid: {{ (int)$project->total_paid }},
             newStatus: '{{ $project->status }}',
             dpAmount: '{{ $project->harga / 2 }}',
-            linkWebsite: '{{ $project->link_website ?: 'https://' . strtolower(str_replace(' ', '', $project->lead->nama_usaha)) . '.com' }}',
-            createMaintenance: true,
+            linkWebsite: '{{ $project->link_website ?? '' }}',
+            createMaintenance: false,
             sendWa: true
          }">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
@@ -26,10 +29,56 @@
                 </div>
 
                 <div class="flex flex-wrap items-center gap-2.5">
+                    @if($project->synced_to_portal_at)
+                        <a href="https://portalclient.rzdigitalcreative.my.id/projects/{{ $project->portal_project_id }}" target="_blank" class="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300 text-xs font-bold transition-all shadow-sm hover:border-blue-500">
+                            <span class="material-symbols-outlined text-[18px] text-blue-600">verified</span>
+                            <span>Portal Terhubung (#{{ $project->portal_project_id }})</span>
+                        </a>
+                        <form action="{{ route('projects.sync-portal', $project) }}" method="POST" class="inline">
+                            @csrf
+                            <button type="submit" title="Sinkronkan ulang ke Portal Klien" class="inline-flex items-center gap-1 px-3 py-2.5 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-300 text-xs font-bold hover:border-blue-500 transition-all shadow-sm">
+                                <span class="material-symbols-outlined text-[16px]">sync</span>
+                                <span>Sinkron Ulang</span>
+                            </button>
+                        </form>
+                    @else
+                        <form action="{{ route('projects.sync-portal', $project) }}" method="POST" class="inline">
+                            @csrf
+                            <button type="button" @click="RzSwal.confirm('Kirim akun klien dan buat proyek ini di Portal Klien secara otomatis?', () => $el.closest('form').submit())" class="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition-all shadow-sm hover:shadow active:scale-95">
+                                <span class="material-symbols-outlined text-[18px]">cloud_sync</span>
+                                <span>Sinkron ke Portal Klien</span>
+                            </button>
+                        </form>
+                    @endif
+
                     <a href="{{ route('invoices.project', $project) }}" target="_blank" class="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-800 dark:text-zinc-200 hover:border-emerald-500 text-xs font-bold transition-all shadow-sm">
                         <span class="material-symbols-outlined text-[18px] text-emerald-600">receipt_long</span>
                         <span>Lihat &amp; Cetak Invoice</span>
                     </a>
+                    <form action="{{ route('invoices.project.send-wa', $project) }}" method="POST" class="inline">
+                        @csrf
+                        <button type="button" @click="RzSwal.confirm('Kirim dokumen PDF Invoice resmi ke WhatsApp klien ({{ $project->lead?->kontak_wa }}) via Gateway?', () => $el.closest('form').submit())" class="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold transition-all shadow-sm hover:shadow active:scale-95" title="Kirim dokumen PDF Invoice langsung ke WhatsApp klien">
+                            <span class="material-symbols-outlined text-[18px]">send</span>
+                            <span>Kirim Invoice WA</span>
+                        </button>
+                    </form>
+                    @if($project->remaining_balance > 0)
+                        <a href="{{ route('invoices.settlement', $project) }}" target="_blank" class="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-white dark:bg-zinc-900 border border-amber-300 dark:border-amber-700 text-amber-800 dark:text-amber-300 hover:border-amber-500 text-xs font-bold transition-all shadow-sm" title="Lihat &amp; cetak dokumen resmi Invoice Pelunasan">
+                            <span class="material-symbols-outlined text-[18px] text-amber-600">description</span>
+                            <span>Lihat Dokumen Pelunasan</span>
+                        </a>
+                        <form action="{{ route('invoices.settlement.send-wa', $project) }}" method="POST" class="inline">
+                            @csrf
+                            <button type="button" @click="RzSwal.confirm('Kirim dokumen PDF resmi Invoice Pelunasan (Sisa: Rp {{ number_format($project->remaining_balance, 0, ',', '.') }}) langsung ke WhatsApp klien ({{ $project->lead?->kontak_wa }}) via Gateway?', () => $el.closest('form').submit())" class="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl {{ $project->status === 'review' ? 'bg-amber-600 hover:bg-amber-700 ring-2 ring-amber-400' : 'bg-amber-600 hover:bg-amber-700' }} text-white text-xs font-bold transition-all shadow-sm hover:shadow active:scale-95" title="Kirim dokumen PDF Tagihan Pelunasan langsung ke WhatsApp klien">
+                                <span class="material-symbols-outlined text-[18px]">send</span>
+                                <span>Kirim Pelunasan (PDF) WA</span>
+                            </button>
+                        </form>
+                    @endif
+                    <button @click="openEditModal = true" class="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-800 dark:text-zinc-200 hover:border-emerald-500 text-xs font-bold transition-all shadow-sm hover:shadow active:scale-95" title="Ubah informasi proyek, paket, dan nilai kesepakatan harga">
+                        <span class="material-symbols-outlined text-[18px] text-emerald-600">edit_square</span>
+                        <span>Edit Proyek &amp; Harga</span>
+                    </button>
                     <button @click="openStatusModal = true" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 text-xs font-bold transition-all shadow-sm hover:shadow active:scale-95">
                         <span class="material-symbols-outlined text-[18px]">sync_alt</span>
                         <span>Ubah Status Proyek</span>
@@ -49,6 +98,12 @@
                             <span class="px-3 py-1 rounded-lg text-xs font-black uppercase tracking-wider bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-400 border border-emerald-200/60 dark:border-emerald-800/40">
                                 {{ $project->status_label }}
                             </span>
+                            @if($project->synced_to_portal_at)
+                                <span class="px-2.5 py-1 rounded-lg text-xs font-bold bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-400 border border-blue-200/60 dark:border-blue-800/40 inline-flex items-center gap-1">
+                                    <span class="material-symbols-outlined text-[14px]">cloud_done</span>
+                                    <span>Portal Terhubung</span>
+                                </span>
+                            @endif
                             <span class="text-xs text-zinc-400 font-mono">ID: #PRJ-{{ str_pad($project->id, 4, '0', STR_PAD_LEFT) }}</span>
                         </div>
                         <h1 class="text-2xl sm:text-3xl font-black text-zinc-900 dark:text-white mt-2 tracking-tight">
@@ -80,14 +135,18 @@
                 </div>
 
                 @if($project->link_website)
-                    <div class="mt-6 pt-6 border-t border-zinc-100 dark:border-zinc-800 flex items-center justify-between">
-                        <div class="flex items-center gap-2 text-xs">
-                            <span class="material-symbols-outlined text-emerald-600 text-[18px]">public</span>
-                            <span class="text-zinc-500">Website Live:</span>
-                            <a href="{{ $project->link_website }}" target="_blank" class="font-mono font-bold text-emerald-600 hover:underline">
-                                {{ $project->link_website }}
-                            </a>
+                    <div class="mt-6 pt-5 border-t border-zinc-100 dark:border-zinc-800 flex flex-wrap items-center justify-between gap-3 bg-zinc-50/80 dark:bg-zinc-800/40 p-3.5 rounded-xl border border-zinc-200/60 dark:border-zinc-700/50">
+                        <div class="flex items-center gap-2.5 text-xs text-zinc-700 dark:text-zinc-300">
+                            <span class="material-symbols-outlined text-emerald-600 text-[20px]">language</span>
+                            <div>
+                                <span class="font-bold text-zinc-900 dark:text-white">Website Klien:</span>
+                                <span class="text-zinc-500 dark:text-zinc-400">Tautan publik / pratinjau sistem</span>
+                            </div>
                         </div>
+                        <a href="{{ $project->link_website }}" target="_blank" class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 text-emerald-600 dark:text-emerald-400 text-xs font-mono font-bold hover:bg-emerald-50 dark:hover:bg-zinc-800 transition-all shadow-2xs">
+                            <span>{{ $project->link_website }}</span>
+                            <span class="material-symbols-outlined text-[15px]">open_in_new</span>
+                        </a>
                     </div>
                 @endif
             </div>
@@ -123,9 +182,15 @@
                                     <span class="font-mono font-bold text-xs text-zinc-900 dark:text-white">
                                         Rp {{ number_format($p->jumlah, 0, ',', '.') }}
                                     </span>
-                                    <a href="{{ route('invoices.receipt', $p) }}" target="_blank" class="p-1.5 rounded-lg text-zinc-400 hover:text-emerald-600 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors" title="Cetak Kwitansi Resmi">
+                                    <a href="{{ route('invoices.receipt', $p) }}" target="_blank" class="p-1.5 rounded-lg text-zinc-400 hover:text-emerald-600 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors" title="Lihat & Cetak Kwitansi Resmi">
                                         <span class="material-symbols-outlined text-[18px]">receipt</span>
                                     </a>
+                                    <form action="{{ route('invoices.receipt.send-wa', $p) }}" method="POST" class="inline">
+                                        @csrf
+                                        <button type="button" @click="RzSwal.confirm('Kirim dokumen PDF Kwitansi ini langsung ke nomor WhatsApp {{ $project->lead?->kontak_wa }} via Flustra Gateway?', () => $el.closest('form').submit())" class="p-1.5 rounded-lg text-zinc-400 hover:text-emerald-600 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors" title="Kirim Kwitansi PDF via WhatsApp">
+                                            <span class="material-symbols-outlined text-[18px]">send</span>
+                                        </button>
+                                    </form>
                                 </div>
                             </div>
                         @empty
@@ -165,6 +230,74 @@
                     </div>
                 </div>
 
+            </div>
+
+            <!-- Subscription / Masa Berlaku Section -->
+            <div class="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200/80 dark:border-zinc-800 shadow-sm p-6 space-y-4">
+                <div class="flex items-center justify-between pb-3 border-b border-zinc-100 dark:border-zinc-800">
+                    <h3 class="font-bold text-zinc-900 dark:text-white text-base flex items-center gap-2">
+                        <span class="material-symbols-outlined text-amber-500">license</span>
+                        <span>Masa Berlaku / Lisensi</span>
+                    </h3>
+                    <a href="{{ route('subscriptions.index') }}?q={{ urlencode($project->nama_project) }}" class="text-xs font-bold text-emerald-600 hover:underline">
+                        Kelola
+                    </a>
+                </div>
+
+                @if($project->subscriptions->isNotEmpty())
+                    <div class="divide-y divide-zinc-100 dark:divide-zinc-800">
+                        @foreach($project->subscriptions as $sub)
+                            @php
+                                $colorMap = ['green' => 'emerald', 'yellow' => 'amber', 'red' => 'rose', 'gray' => 'zinc'];
+                                $c = $colorMap[$sub->status_color] ?? 'zinc';
+                            @endphp
+                            <div class="py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                <div>
+                                    <div class="flex items-center gap-2">
+                                        <span class="font-bold text-xs text-zinc-900 dark:text-white">{{ $sub->tipe_label }}</span>
+                                        <span class="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase bg-{{ $c }}-50 dark:bg-{{ $c }}-950/40 text-{{ $c }}-700 dark:text-{{ $c }}-400 border border-{{ $c }}-200/50 dark:border-{{ $c }}-900/40">
+                                            {{ $sub->status_label }}
+                                        </span>
+                                        @if($sub->sisa_hari > 0 && $sub->sisa_hari <= 30 && !$sub->isExpired())
+                                            <span class="px-1.5 py-0.5 rounded text-[9px] font-black uppercase bg-amber-500 text-white">{{ $sub->sisa_hari }} Hari</span>
+                                        @elseif($sub->isExpired())
+                                            <span class="px-1.5 py-0.5 rounded text-[9px] font-black uppercase bg-rose-500 text-white">Expired</span>
+                                        @endif
+                                    </div>
+                                    <p class="text-[11px] text-zinc-400 mt-0.5">
+                                        Mulai: {{ $sub->tanggal_mulai->format('d M Y') }} • Expired: <span class="font-semibold {{ $sub->isExpired() ? 'text-rose-500' : ($sub->sisa_hari <= 30 ? 'text-amber-600' : 'text-zinc-700 dark:text-zinc-300') }}">{{ $sub->tanggal_expired->format('d M Y') }}</span>
+                                        • Rp {{ number_format($sub->harga, 0, ',', '.') }}
+                                    </p>
+                                </div>
+                                <div class="flex items-center gap-2 shrink-0">
+                                    <form method="POST" action="{{ route('subscriptions.reminder', $sub) }}" class="inline">
+                                        @csrf
+                                        <button type="submit" class="p-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100 transition-colors" title="Kirim Reminder WA">
+                                            <span class="material-symbols-outlined text-[16px]">chat</span>
+                                        </button>
+                                    </form>
+                                    <form method="POST" action="{{ route('subscriptions.renew', $sub) }}" class="inline">
+                                        @csrf
+                                        <input type="hidden" name="send_wa" value="1">
+                                        <button type="button" @click="RzSwal.confirm('Perpanjang subscription ini dengan durasi yang sama?', () => $el.closest('form').submit())" class="px-2.5 py-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-400 text-[11px] font-bold hover:bg-indigo-100 transition-colors" title="Perpanjang">
+                                            <span class="material-symbols-outlined text-[14px] align-middle">autorenew</span> Perpanjang
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                        @endforeach
+                    </div>
+                @else
+                    <div class="py-6 text-center text-zinc-400 text-xs">
+                        <span class="material-symbols-outlined text-[28px] text-zinc-300 dark:text-zinc-600 block mb-1">license</span>
+                        Belum ada subscription / masa berlaku untuk proyek ini.
+                        <div class="mt-3">
+                            <a href="{{ route('subscriptions.index') }}?create=1&project_id={{ $project->id }}" class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold transition-all">
+                                <span class="material-symbols-outlined text-[14px]">add</span> Tambah Subscription
+                            </a>
+                        </div>
+                    </div>
+                @endif
             </div>
 
         </div>
@@ -258,10 +391,10 @@
                         <label class="block text-xs font-bold uppercase text-zinc-700 dark:text-zinc-300 mb-1">Pilih Status Baru <span class="text-rose-500">*</span></label>
                         <select name="status" x-model="newStatus" required class="w-full px-3.5 py-2.5 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs text-zinc-800 dark:text-zinc-200 font-bold focus:ring-emerald-500">
                             <option value="draft">Draft / Baru</option>
-                            <option value="dp_diterima">DP Diterima (Picu WA Invoice DP)</option>
-                            <option value="dikerjakan">Sedang Dikerjakan</option>
-                            <option value="review">Review Klien</option>
-                            <option value="selesai">Selesai &amp; Live (Picu WA Live + Maintenance)</option>
+                            <option value="dp_diterima">DP Diterima (Picu WA Konfirmasi DP)</option>
+                            <option value="dikerjakan">Sedang Dikerjakan (Picu WA Progres Dimulai)</option>
+                            <option value="review">Review Klien (Picu WA Pratinjau &amp; Feedback)</option>
+                            <option value="selesai">Selesai &amp; Live (Picu WA Website Live)</option>
                             <option value="dibatalkan">Dibatalkan</option>
                         </select>
                     </div>
@@ -274,26 +407,24 @@
                         </p>
                         <div>
                             <label class="block text-[11px] font-semibold text-zinc-600 dark:text-zinc-400 mb-1">Nominal DP Diterima (Rp)</label>
-                            <input type="number" name="dp_amount" x-model="dpAmount" 
+                            <input type="number" name="dp_amount" x-model="dpAmount"
                                    class="w-full px-3 py-2 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg text-xs">
                         </div>
-                    </div>
-
-                    <!-- Additional inputs for Selesai -->
-                    <div x-show="newStatus === 'selesai'" class="p-4 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200/60 dark:border-emerald-800/40 space-y-3">
+                    </div>                    <!-- Additional inputs for Selesai or Review -->
+                    <div x-show="newStatus === 'selesai' || newStatus === 'review'" class="p-4 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200/60 dark:border-emerald-800/40 space-y-3">
                         <p class="text-xs font-bold text-emerald-800 dark:text-emerald-300 flex items-center gap-1.5">
                             <span class="material-symbols-outlined text-[16px]">public</span>
-                            <span>Informasi Website Live</span>
+                            <span x-text="newStatus === 'selesai' ? 'Informasi Website Live' : 'Link Pratinjau / Preview Website'"></span>
                         </p>
                         <div>
-                            <label class="block text-[11px] font-semibold text-zinc-600 dark:text-zinc-400 mb-1">Link URL Website Live</label>
+                            <label class="block text-[11px] font-semibold text-zinc-600 dark:text-zinc-400 mb-1" x-text="newStatus === 'selesai' ? 'Link URL Website Live' : 'Link URL Website Pratinjau'"></label>
                             <input type="url" name="link_website" x-model="linkWebsite" placeholder="https://domainklien.com"
                                    class="w-full px-3 py-2 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg text-xs">
                         </div>
 
-                        <label class="flex items-center gap-2 cursor-pointer pt-1">
+                        <label x-show="newStatus === 'selesai'" class="flex items-center gap-2 cursor-pointer pt-1">
                             <input type="checkbox" name="create_maintenance" value="1" x-model="createMaintenance" class="rounded text-emerald-600 focus:ring-emerald-500">
-                            <span class="text-xs text-zinc-700 dark:text-zinc-300 font-semibold">Otomatis buat langganan maintenance bulanan aktif</span>
+                            <span class="text-xs text-zinc-700 dark:text-zinc-300 font-semibold">Daftarkan langganan maintenance bulanan (Hanya jika klien deal/minta maintenance)</span>
                         </label>
                     </div>
 
@@ -312,6 +443,110 @@
                     <div class="pt-4 border-t border-zinc-100 dark:border-zinc-800 flex justify-end gap-2">
                         <button type="button" @click="openStatusModal = false" class="px-4 py-2 rounded-xl text-xs font-semibold border text-zinc-600">Batal</button>
                         <button type="submit" class="px-5 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm">Simpan Status</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- ============================================================ -->
+        <!-- MODAL EDIT INFORMASI & NILAI KONTRAK PROYEK -->
+        <!-- ============================================================ -->
+        <div x-show="openEditModal" 
+             x-transition
+             class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-950/70 backdrop-blur-sm"
+             style="display: none;">
+            <div @click.away="openEditModal = false" class="bg-white dark:bg-zinc-900 w-full max-w-lg rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-2xl p-6 sm:p-8 space-y-6 max-h-[90vh] overflow-y-auto custom-scrollbar">
+                <div class="flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800 pb-4">
+                    <div class="flex items-center gap-2.5">
+                        <div class="p-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400">
+                            <span class="material-symbols-outlined text-[20px]">edit_square</span>
+                        </div>
+                        <div>
+                            <h3 class="font-extrabold text-zinc-900 dark:text-white text-base">Edit Proyek &amp; Nilai Kontrak</h3>
+                            <p class="text-xs text-zinc-400 mt-0.5">{{ $project->nama_project }}</p>
+                        </div>
+                    </div>
+                    <button @click="openEditModal = false" class="text-zinc-400 hover:text-zinc-600">
+                        <span class="material-symbols-outlined text-[20px]">close</span>
+                    </button>
+                </div>
+
+                <form method="POST" action="{{ route('projects.update', $project) }}" class="space-y-4">
+                    @csrf
+                    @method('PUT')
+
+                    <div>
+                        <label class="block text-xs font-bold uppercase text-zinc-700 dark:text-zinc-300 mb-1">Nama Proyek <span class="text-rose-500">*</span></label>
+                        <input type="text" name="nama_project" value="{{ old('nama_project', $project->nama_project) }}" required
+                               class="w-full px-3.5 py-2.5 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs text-zinc-900 dark:text-white focus:ring-2 focus:ring-emerald-500">
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-bold uppercase text-zinc-700 dark:text-zinc-300 mb-1">Paket Layanan <span class="text-rose-500">*</span></label>
+                            <select name="paket" required class="w-full px-3.5 py-2.5 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs text-zinc-800 dark:text-zinc-200 font-bold focus:ring-emerald-500">
+                                <option value="landing_page" {{ $project->paket == 'landing_page' ? 'selected' : '' }}>Landing Page</option>
+                                <option value="company_profile" {{ $project->paket == 'company_profile' ? 'selected' : '' }}>Company Profile</option>
+                                <option value="toko_kasir" {{ $project->paket == 'toko_kasir' ? 'selected' : '' }}>Toko &amp; Kasir POS</option>
+                                <option value="custom" {{ $project->paket == 'custom' ? 'selected' : '' }}>Custom Web App</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-bold uppercase text-zinc-700 dark:text-zinc-300 mb-1">Total Nilai Kontrak (Rp) <span class="text-rose-500">*</span></label>
+                            <input type="number" name="harga" x-model.number="editHarga" min="{{ (int)$project->total_paid }}" required
+                                   class="w-full px-3.5 py-2.5 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs text-zinc-900 dark:text-white font-mono font-bold focus:ring-2 focus:ring-emerald-500">
+                        </div>
+                    </div>
+
+                    <!-- Live Calculation Box -->
+                    <div class="p-3.5 rounded-xl bg-zinc-50 dark:bg-zinc-950/60 border border-zinc-200 dark:border-zinc-800 flex items-center justify-between text-xs">
+                        <div>
+                            <span class="text-zinc-500">Total Telah Terbayar:</span>
+                            <span class="font-mono font-bold text-emerald-600 block">Rp {{ number_format($project->total_paid, 0, ',', '.') }}</span>
+                        </div>
+                        <div class="text-right">
+                            <span class="text-zinc-500">Estimasi Sisa Tagihan Baru:</span>
+                            <span class="font-mono font-black text-rose-500 block" x-text="'Rp ' + Math.max(0, editHarga - totalPaid).toLocaleString('id-ID')"></span>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-bold uppercase text-zinc-700 dark:text-zinc-300 mb-1">Tanggal Mulai</label>
+                            <input type="date" name="tanggal_mulai" value="{{ $project->tanggal_mulai ? $project->tanggal_mulai->toDateString() : '' }}"
+                                   class="w-full px-3.5 py-2.5 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs text-zinc-900 dark:text-white focus:ring-2 focus:ring-emerald-500">
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-bold uppercase text-zinc-700 dark:text-zinc-300 mb-1">Target Selesai</label>
+                            <input type="date" name="tanggal_selesai" value="{{ $project->tanggal_selesai ? $project->tanggal_selesai->toDateString() : '' }}"
+                                   class="w-full px-3.5 py-2.5 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs text-zinc-900 dark:text-white focus:ring-2 focus:ring-emerald-500">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold uppercase text-zinc-700 dark:text-zinc-300 mb-1">Link URL Website (Live / Preview)</label>
+                        <input type="url" name="link_website" value="{{ old('link_website', $project->link_website) }}" placeholder="https://domainklien.com"
+                               class="w-full px-3.5 py-2.5 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs text-zinc-900 dark:text-white focus:ring-2 focus:ring-emerald-500">
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold uppercase text-zinc-700 dark:text-zinc-300 mb-1">Catatan Proyek</label>
+                        <textarea name="catatan" rows="3" placeholder="Catatan internal kesepakatan fitur..."
+                                  class="w-full px-3.5 py-2.5 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs text-zinc-900 dark:text-white focus:ring-2 focus:ring-emerald-500">{{ old('catatan', $project->catatan) }}</textarea>
+                    </div>
+
+                    @if($project->synced_to_portal_at || $project->portal_project_id)
+                        <div class="p-3 rounded-xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200/60 dark:border-blue-800/40 flex items-center gap-2 text-xs text-blue-700 dark:text-blue-300">
+                            <span class="material-symbols-outlined text-[18px]">sync</span>
+                            <span>Perubahan harga &amp; data ini akan otomatis disinkronkan ke tagihan Portal Klien.</span>
+                        </div>
+                    @endif
+
+                    <div class="pt-4 border-t border-zinc-100 dark:border-zinc-800 flex justify-end gap-2">
+                        <button type="button" @click="openEditModal = false" class="px-4 py-2 rounded-xl text-xs font-semibold border text-zinc-600">Batal</button>
+                        <button type="submit" class="px-5 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm">Simpan Perubahan</button>
                     </div>
                 </form>
             </div>

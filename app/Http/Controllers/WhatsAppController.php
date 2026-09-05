@@ -73,4 +73,25 @@ class WhatsAppController extends Controller
 
         return back()->with('error', "Gagal mengirim pesan: " . ($res['message'] ?? 'Periksa log atau kredensial API.'));
     }
+
+    /**
+     * Remove a single message log entry.
+     */
+    public function destroy(MessageLog $messageLog)
+    {
+        $messageLog->delete();
+
+        return back()->with('success', 'Riwayat pesan berhasil dihapus.');
+    }
+
+    /**
+     * Remove all message log entries (bulk cleanup).
+     */
+    public function destroyAll()
+    {
+        $count = MessageLog::count();
+        MessageLog::truncate();
+
+        return redirect()->route('messages.index')->with('success', "Seluruh {$count} riwayat pesan berhasil dihapus.");
+    }
 }

@@ -27,9 +27,10 @@ class RegistrationTest extends TestCase
 
     public function test_admin_can_create_internal_user(): void
     {
-        $admin = User::factory()->create([
-            'email' => 'rzcompanyidn@gmail.com',
-        ]);
+        $admin = User::firstOrCreate(
+            ['email' => 'rzcompanyidn@gmail.com'],
+            ['name' => 'Owner RZ Digital', 'password' => bcrypt('password')]
+        );
 
         $response = $this->actingAs($admin)->post(route('users.store'), [
             'name' => 'Staff Baru',

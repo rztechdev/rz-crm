@@ -121,10 +121,10 @@
                                                     </button>
                                                 </form>
                                             @endif
-                                            <form method="POST" action="{{ route('payments.destroy', $payment) }}" onsubmit="return confirm('Hapus pembayaran ini?');">
+                                            <form method="POST" action="{{ route('payments.destroy', $payment) }}" x-ref="deletePaymentDesktop{{ $payment->id }}">
                                                 @csrf
                                                 @method('DELETE')
-                                                <button type="submit" class="p-1.5 rounded-lg text-zinc-400 hover:text-rose-600 hover:bg-rose-50 transition-colors" title="Hapus Pembayaran">
+                                                <button type="button" @click="RzSwal.confirmDelete('Hapus pembayaran ini?', $refs['deletePaymentDesktop{{ $payment->id }}'])" class="p-1.5 rounded-lg text-zinc-400 hover:text-rose-600 hover:bg-rose-50 transition-colors" title="Hapus Pembayaran">
                                                     <span class="material-symbols-outlined text-[18px]">delete</span>
                                                 </button>
                                             </form>

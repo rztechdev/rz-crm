@@ -53,4 +53,25 @@ class ActivityLogController extends Controller
 
         return view('activity_logs.index', compact('logs', 'users', 'actionTypes'));
     }
+
+    /**
+     * Remove a single activity log entry.
+     */
+    public function destroy(ActivityLog $activityLog)
+    {
+        $activityLog->delete();
+
+        return back()->with('success', 'Log aktivitas berhasil dihapus.');
+    }
+
+    /**
+     * Remove all activity log entries (bulk cleanup).
+     */
+    public function destroyAll()
+    {
+        $count = ActivityLog::count();
+        ActivityLog::truncate();
+
+        return redirect()->route('activity-logs.index')->with('success', "Seluruh {$count} log aktivitas berhasil dihapus.");
+    }
 }

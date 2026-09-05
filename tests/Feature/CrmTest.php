@@ -22,16 +22,19 @@ class CrmTest extends TestCase
     {
         parent::setUp();
 
-        $this->admin = User::factory()->create([
-            'email' => 'rzcompanyidn@gmail.com',
-        ]);
+        $this->withoutMiddleware(\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class);
+
+        $this->admin = User::firstOrCreate(
+            ['email' => 'rzcompanyidn@gmail.com'],
+            ['name' => 'Owner RZ Digital', 'password' => bcrypt('password')]
+        );
     }
 
     public function test_dashboard_renders_with_pipeline_metrics(): void
     {
         $lead = Lead::create([
             'nama_usaha' => 'Toko Sepatu Bagus',
-            'kontak_wa' => '081234567890',
+            'kontak_wa' => '080000000001',
             'status' => 'sudah_chat',
             'paket_diminati' => 'landing_page', // 499.000
         ]);
@@ -43,12 +46,49 @@ class CrmTest extends TestCase
         $response->assertSee('499.000');
     }
 
+    public function test_dashboard_closingan_separates_real_cash_received_from_unpaid_dp(): void
+    {
+        $lead = Lead::create([
+            'nama_usaha' => 'Client Proyek DP',
+            'kontak_wa' => '080000000099',
+            'status' => 'deal',
+            'paket_diminati' => 'custom',
+        ]);
+
+        $project = Project::create([
+            'lead_id' => $lead->id,
+            'nama_project' => 'Sistem Kustom Client DP',
+            'paket' => 'custom',
+            'harga' => 2000000,
+            'status' => 'dikerjakan',
+        ]);
+
+        // Client only pays DP of Rp 500.000
+        Payment::create([
+            'project_id' => $project->id,
+            'jenis' => 'dp',
+            'jumlah' => 500000,
+            'status' => 'lunas',
+            'tanggal' => now()->toDateString(),
+        ]);
+
+        $response = $this->actingAs($this->admin)->get(route('dashboard'));
+
+        $response->assertStatus(200);
+        // Should see real cash received (500.000), not the full 2.000.000 as received revenue
+        $response->assertSee('500.000');
+        // Should show total deal and remaining balance (1.500.000)
+        $response->assertSee('2.000.000');
+        $response->assertSee('1.500.000');
+        $response->assertSee('Sisa Piutang (Masih DP)');
+    }
+
     public function test_lead_can_be_created_and_marked_as_deal(): void
     {
         $response = $this->actingAs($this->admin)->post(route('leads.store'), [
             'nama_usaha' => 'Warung Bakso Enak',
             'nama_kontak' => 'Pak Joko',
-            'kontak_wa' => '081299887766',
+            'kontak_wa' => '080000000002',
             'sumber' => 'referral',
             'status' => 'nego',
             'paket_diminati' => 'company_profile',
@@ -77,7 +117,7 @@ class CrmTest extends TestCase
     {
         $coldLead = Lead::create([
             'nama_usaha' => 'Cold Outreach Target',
-            'kontak_wa' => '081233445566',
+            'kontak_wa' => '080000000003',
             'status' => 'belum_dihubungi', // Non-deal lead
             'paket_diminati' => 'landing_page',
         ]);
@@ -106,7 +146,7 @@ class CrmTest extends TestCase
     {
         $lead = Lead::create([
             'nama_usaha' => 'Klien Deal Sukses',
-            'kontak_wa' => '081255667788',
+            'kontak_wa' => '080000000004',
             'status' => 'deal',
             'paket_diminati' => 'company_profile',
         ]);
@@ -141,7 +181,7 @@ class CrmTest extends TestCase
     {
         $lead = Lead::create([
             'nama_usaha' => 'Klien Selesai Web',
-            'kontak_wa' => '081277889900',
+            'kontak_wa' => '080000000005',
             'status' => 'deal',
             'paket_diminati' => 'landing_page',
         ]);
@@ -178,17 +218,92 @@ class CrmTest extends TestCase
         $this->assertStringContainsString('https://klienselesai.com', $log->isi_pesan);
     }
 
+    public function test_project_selesai_without_create_maintenance_does_not_create_subscription(): void
+    {
+        $lead = Lead::create([
+            'nama_usaha' => 'Klien Selesai Tanpa Maintenance',
+            'kontak_wa' => '080000000088',
+            'status' => 'deal',
+            'paket_diminati' => 'landing_page',
+        ]);
+
+        $project = Project::create([
+            'lead_id' => $lead->id,
+            'nama_project' => 'Landing Page Tanpa Mnt',
+            'paket' => 'landing_page',
+            'harga' => 499000,
+            'status' => 'review',
+        ]);
+
+        $response = $this->actingAs($this->admin)->post(route('projects.update-status', $project), [
+            'status' => 'selesai',
+            'link_website' => 'https://tanpamaintenance.com',
+            'create_maintenance' => 0,
+            'send_wa' => 0,
+        ]);
+
+        $response->assertSessionHas('success');
+        $project->refresh();
+        $this->assertEquals('selesai', $project->status);
+
+        // Verify NO Maintenance was created
+        $maintenance = MaintenanceSubscription::where('lead_id', $lead->id)->first();
+        $this->assertNull($maintenance);
+    }
+
+    public function test_manual_maintenance_store_and_destroy(): void
+    {
+        $lead = Lead::create([
+            'nama_usaha' => 'Klien Deal Maintenance Manual',
+            'kontak_wa' => '080000000089',
+            'status' => 'deal',
+            'paket_diminati' => 'company_profile',
+        ]);
+
+        $project = Project::create([
+            'lead_id' => $lead->id,
+            'nama_project' => 'Website Company Profile Mnt',
+            'paket' => 'company_profile',
+            'harga' => 999000,
+            'status' => 'selesai',
+        ]);
+
+        // 1. Admin manually creates maintenance deal
+        $storeResponse = $this->actingAs($this->admin)->post(route('maintenance.store'), [
+            'lead_id' => $lead->id,
+            'project_id' => $project->id,
+            'harga_bulanan' => 150000,
+            'status' => 'aktif',
+            'tanggal_mulai' => now()->toDateString(),
+            'tanggal_jatuh_tempo_berikutnya' => now()->addMonth()->toDateString(),
+            'catatan' => 'Deal maintenance rutin atas permintaan klien',
+        ]);
+
+        $storeResponse->assertSessionHas('success');
+
+        $sub = MaintenanceSubscription::where('lead_id', $lead->id)->first();
+        $this->assertNotNull($sub);
+        $this->assertEquals(150000, $sub->harga_bulanan);
+        $this->assertEquals('aktif', $sub->status);
+
+        // 2. Admin deletes maintenance subscription
+        $destroyResponse = $this->actingAs($this->admin)->delete(route('maintenance.destroy', $sub));
+        $destroyResponse->assertSessionHas('success');
+
+        $this->assertNull(MaintenanceSubscription::find($sub->id));
+    }
+
     public function test_flustra_webhook_receives_incoming_reply(): void
     {
         $lead = Lead::create([
             'nama_usaha' => 'Klien Chat Webhook',
-            'kontak_wa' => '081299998888',
+            'kontak_wa' => '080000000006',
             'status' => 'deal',
             'paket_diminati' => 'landing_page',
         ]);
 
         $payload = [
-            'from' => '6281299998888',
+            'from' => '6280000000006',
             'message' => 'Halo mas, websitenya mantap banget!',
         ];
 
@@ -208,7 +323,7 @@ class CrmTest extends TestCase
     {
         $lead = Lead::create([
             'nama_usaha' => 'Klien Langganan Maintenance',
-            'kontak_wa' => '081233221100',
+            'kontak_wa' => '080000000007',
             'status' => 'deal',
             'paket_diminati' => 'company_profile',
         ]);
@@ -233,7 +348,7 @@ class CrmTest extends TestCase
     {
         Lead::create([
             'nama_usaha' => 'Export Lead UMKM',
-            'kontak_wa' => '081234560000',
+            'kontak_wa' => '080000000008',
             'status' => 'belum_dihubungi',
             'paket_diminati' => 'landing_page',
         ]);
@@ -248,7 +363,7 @@ class CrmTest extends TestCase
     {
         $lead = Lead::create([
             'nama_usaha' => 'Klien Invoice Test',
-            'kontak_wa' => '081288887777',
+            'kontak_wa' => '080000000009',
             'status' => 'deal',
             'paket_diminati' => 'landing_page',
         ]);
@@ -287,7 +402,7 @@ class CrmTest extends TestCase
     {
         $lead = Lead::create([
             'nama_usaha' => 'Lead Kanban Test',
-            'kontak_wa' => '081299990000',
+            'kontak_wa' => '080000000010',
             'status' => 'belum_dihubungi',
             'paket_diminati' => 'company_profile',
         ]);

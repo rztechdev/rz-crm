@@ -1,5 +1,8 @@
 <x-app-layout>
-    <div class="space-y-6 w-full">
+    <div class="space-y-6 w-full" x-data>
+
+            <!-- Flash Alert -->
+            <x-flash />
 
             <!-- Title & Info Bar -->
             <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -12,6 +15,16 @@
                     </h1>
                     <p class="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 mt-1">Rekaman jejak aktivitas seluruh aksi tim internal dan perubahan data CRM secara real-time.</p>
                 </div>
+                @if($logs->total() > 0)
+                    <form method="POST" action="{{ route('activity-logs.destroy-all') }}" x-ref="deleteAllActivityLogs">
+                        @csrf
+                        @method('DELETE')
+                        <button type="button" @click="RzSwal.confirmDelete('Hapus seluruh {{ $logs->total() }} log aktivitas? Data yang dihapus tidak bisa dikembalikan.', $refs.deleteAllActivityLogs)" class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl border border-rose-200 dark:border-rose-800 text-xs font-semibold bg-white dark:bg-zinc-900 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors whitespace-nowrap">
+                            <span class="material-symbols-outlined text-[18px]">delete_sweep</span>
+                            <span>Hapus Semua Log</span>
+                        </button>
+                    </form>
+                @endif
             </div>
 
             <!-- Filter Row -->
@@ -60,6 +73,7 @@
                                 <th class="px-6 py-4">Deskripsi Aktivitas</th>
                                 <th class="px-6 py-4">Tipe Data / ID</th>
                                 <th class="px-6 py-4 text-right">IP Address</th>
+                                <th class="px-6 py-4 text-right">Aksi</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-zinc-100 dark:divide-zinc-800/60 text-xs">
@@ -99,10 +113,19 @@
                                     <td class="px-6 py-4 font-mono text-zinc-400 text-[11px] text-right whitespace-nowrap">
                                         {{ $log->ip_address ?: '-' }}
                                     </td>
+                                    <td class="px-6 py-4 text-right">
+                                        <form method="POST" action="{{ route('activity-logs.destroy', $log) }}" x-ref="deleteLogDesktop{{ $log->id }}">
+                                            @csrf
+                                            @method('DELETE')
+                                            <button type="button" @click="RzSwal.confirmDelete('Hapus log aktivitas ini?', $refs['deleteLogDesktop{{ $log->id }}'])" class="p-1.5 rounded-lg text-zinc-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors" title="Hapus Log">
+                                                <span class="material-symbols-outlined text-[18px]">delete</span>
+                                            </button>
+                                        </form>
+                                    </td>
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="6" class="px-6 py-12 text-center text-zinc-400 text-xs">
+                                    <td colspan="7" class="px-6 py-12 text-center text-zinc-400 text-xs">
                                         Belum ada aktivitas audit log yang tercatat.
                                     </td>
                                 </tr>
@@ -137,9 +160,18 @@
 
                             <div class="flex items-center justify-between text-[11px] text-zinc-500 pt-2 border-t border-zinc-100 dark:border-zinc-800/80">
                                 <span class="font-semibold">{{ $log->user_name ?? 'Sistem' }}</span>
-                                @if($log->subject_type)
-                                    <span class="font-mono text-[10px]">{{ $log->subject_type }} #{{ $log->subject_id }}</span>
-                                @endif
+                                <div class="flex items-center gap-2">
+                                    @if($log->subject_type)
+                                        <span class="font-mono text-[10px]">{{ $log->subject_type }} #{{ $log->subject_id }}</span>
+                                    @endif
+                                    <form method="POST" action="{{ route('activity-logs.destroy', $log) }}" x-ref="deleteLogMobile{{ $log->id }}">
+                                        @csrf
+                                        @method('DELETE')
+                                        <button type="button" @click="RzSwal.confirmDelete('Hapus log aktivitas ini?', $refs['deleteLogMobile{{ $log->id }}'])" class="p-1.5 rounded-lg text-zinc-400 hover:text-rose-600 dark:hover:text-rose-400" title="Hapus Log">
+                                            <span class="material-symbols-outlined text-[16px]">delete</span>
+                                        </button>
+                                    </form>
+                                </div>
                             </div>
                         </div>
                     @empty

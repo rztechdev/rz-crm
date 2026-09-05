@@ -1,12 +1,12 @@
 <x-app-layout>
     <div class="space-y-6 w-full"
-         x-data="{ 
+         x-data="{
             openStatusModal: false,
             activeProject: {},
             newStatus: '',
             dpAmount: '',
             linkWebsite: '',
-            createMaintenance: true,
+            createMaintenance: false,
             sendWa: true
          }">
 
@@ -159,7 +159,7 @@
                                 activeProject = {{ json_encode($project) }};
                                 newStatus = '{{ $project->status }}';
                                 dpAmount = '{{ $project->harga / 2 }}';
-                                linkWebsite = '{{ $project->link_website ?: 'https://' . strtolower(str_replace(' ', '', $project->lead->nama_usaha)) . '.com' }}';
+                                linkWebsite = '{{ $project->link_website ?? '' }}';
                                 openStatusModal = true;
                             " class="flex-1 px-3 py-2 rounded-xl bg-zinc-100 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 text-xs font-bold hover:bg-emerald-50 hover:text-emerald-700 dark:hover:bg-emerald-950/50 dark:hover:text-emerald-400 transition-colors flex items-center justify-center gap-1">
                                 <span class="material-symbols-outlined text-[16px]">sync_alt</span>
@@ -213,10 +213,10 @@
                         <label class="block text-xs font-bold uppercase text-zinc-700 dark:text-zinc-300 mb-1">Pilih Status Baru <span class="text-rose-500">*</span></label>
                         <select name="status" x-model="newStatus" required class="w-full px-3.5 py-2.5 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs text-zinc-800 dark:text-zinc-200 font-bold focus:ring-emerald-500">
                             <option value="draft">Draft / Baru</option>
-                            <option value="dp_diterima">DP Diterima (Picu WA Invoice DP)</option>
-                            <option value="dikerjakan">Sedang Dikerjakan</option>
-                            <option value="review">Review Klien</option>
-                            <option value="selesai">Selesai &amp; Live (Picu WA Live + Maintenance)</option>
+                            <option value="dp_diterima">DP Diterima (Picu WA Konfirmasi DP)</option>
+                            <option value="dikerjakan">Sedang Dikerjakan (Picu WA Progres Dimulai)</option>
+                            <option value="review">Review Klien (Picu WA Pratinjau &amp; Feedback)</option>
+                            <option value="selesai">Selesai &amp; Live (Picu WA Website Live)</option>
                             <option value="dibatalkan">Dibatalkan</option>
                         </select>
                     </div>
@@ -229,26 +229,26 @@
                         </p>
                         <div>
                             <label class="block text-[11px] font-semibold text-zinc-600 dark:text-zinc-400 mb-1">Nominal DP Diterima (Rp)</label>
-                            <input type="number" name="dp_amount" x-model="dpAmount" 
+                            <input type="number" name="dp_amount" x-model="dpAmount"
                                    class="w-full px-3 py-2 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg text-xs">
                         </div>
                     </div>
 
-                    <!-- Additional inputs for Selesai -->
-                    <div x-show="newStatus === 'selesai'" class="p-4 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200/60 dark:border-emerald-800/40 space-y-3">
+                    <!-- Additional inputs for Selesai or Review -->
+                    <div x-show="newStatus === 'selesai' || newStatus === 'review'" class="p-4 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200/60 dark:border-emerald-800/40 space-y-3">
                         <p class="text-xs font-bold text-emerald-800 dark:text-emerald-300 flex items-center gap-1.5">
                             <span class="material-symbols-outlined text-[16px]">public</span>
-                            <span>Informasi Website Live</span>
+                            <span x-text="newStatus === 'selesai' ? 'Informasi Website Live' : 'Link Pratinjau / Preview Website'"></span>
                         </p>
                         <div>
-                            <label class="block text-[11px] font-semibold text-zinc-600 dark:text-zinc-400 mb-1">Link URL Website Live</label>
+                            <label class="block text-[11px] font-semibold text-zinc-600 dark:text-zinc-400 mb-1" x-text="newStatus === 'selesai' ? 'Link URL Website Live' : 'Link URL Website Pratinjau'"></label>
                             <input type="url" name="link_website" x-model="linkWebsite" placeholder="https://domainklien.com"
                                    class="w-full px-3 py-2 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg text-xs">
                         </div>
 
-                        <label class="flex items-center gap-2 cursor-pointer pt-1">
+                        <label x-show="newStatus === 'selesai'" class="flex items-center gap-2 cursor-pointer pt-1">
                             <input type="checkbox" name="create_maintenance" value="1" x-model="createMaintenance" class="rounded text-emerald-600 focus:ring-emerald-500">
-                            <span class="text-xs text-zinc-700 dark:text-zinc-300 font-semibold">Otomatis buat langganan maintenance bulanan aktif</span>
+                            <span class="text-xs text-zinc-700 dark:text-zinc-300 font-semibold">Daftarkan langganan maintenance bulanan (Hanya jika klien deal/minta maintenance)</span>
                         </label>
                     </div>
 

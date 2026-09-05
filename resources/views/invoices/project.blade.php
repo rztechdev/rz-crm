@@ -4,190 +4,475 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Invoice {{ $invoiceNumber }} - {{ $project->nama_project }}</title>
-    <!-- Favicon -->
-    <link rel="icon" type="image/jpeg" href="{{ asset('images/logo_rz_teks.jpeg') }}">
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet" />
-    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
+    <link rel="icon" type="image/png" href="{{ asset('images/logo_rz_teks.png') }}">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
-        body { font-family: 'Inter', sans-serif; }
-        .font-mono { font-family: 'JetBrains Mono', monospace; }
+        @page {
+            size: A4 portrait;
+            margin: 12mm 15mm 15mm 15mm;
+        }
+        * {
+            box-sizing: border-box;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+        }
+        body {
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            font-size: 11pt;
+            line-height: 1.4;
+            color: #111111;
+            background-color: {{ ($isPdf ?? false) ? '#ffffff' : '#f4f4f5' }};
+            margin: 0;
+            padding: {{ ($isPdf ?? false) ? '0' : '20px' }};
+        }
+        .no-print {
+            {{ ($isPdf ?? false) ? 'display: none !important;' : '' }}
+        }
         @media print {
-            .no-print { display: none !important; }
-            body { background: white !important; padding: 0 !important; color: black !important; }
-            .invoice-box { box-shadow: none !important; border: none !important; margin: 0 !important; max-width: 100% !important; padding: 0 !important; }
-            @page { size: A4; margin: 15mm; }
+            .no-print {
+                display: none !important;
+            }
+            body {
+                background-color: #ffffff !important;
+                padding: 0 !important;
+            }
+            .invoice-wrapper {
+                box-shadow: none !important;
+                border: none !important;
+                padding: 0 !important;
+                max-width: 100% !important;
+            }
+        }
+        .action-bar {
+            max-width: 800px;
+            margin: 0 auto 16px auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #ffffff;
+            padding: 12px 18px;
+            border-radius: 8px;
+            border: 1px solid #e4e4e7;
+        }
+        .action-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            text-decoration: none;
+            cursor: pointer;
+            border: 1px solid #18181b;
+            background: #18181b;
+            color: #ffffff;
+        }
+        .action-btn.secondary {
+            background: #ffffff;
+            color: #18181b;
+            border: 1px solid #d4d4d8;
+        }
+        .action-btn.secondary:hover {
+            background: #f4f4f5;
+        }
+        .flash-alert {
+            max-width: 800px;
+            margin: 0 auto 16px auto;
+            padding: 12px 16px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 600;
+            border: 1px solid #000000;
+            background: #f4f4f5;
+            color: #000000;
+        }
+
+        /* Invoice Container */
+        .invoice-wrapper {
+            max-width: 800px;
+            margin: 0 auto;
+            background: #ffffff;
+            padding: {{ ($isPdf ?? false) ? '0' : '40px 45px' }};
+            border: {{ ($isPdf ?? false) ? 'none' : '1px solid #e4e4e7' }};
+            box-shadow: {{ ($isPdf ?? false) ? 'none' : '0 4px 15px rgba(0,0,0,0.06)' }};
+            border-radius: {{ ($isPdf ?? false) ? '0' : '4px' }};
+        }
+
+        /* Tables & Structure */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .header-table td {
+            vertical-align: top;
+            padding-bottom: 15px;
+        }
+        .divider {
+            border-top: 2px solid #000000;
+            margin: 5px 0 18px 0;
+        }
+        .meta-table td {
+            vertical-align: top;
+            padding: 4px 0;
+            font-size: 10.5pt;
+        }
+        .items-table {
+            margin-top: 15px;
+            margin-bottom: 15px;
+        }
+        .items-table th {
+            background-color: #f4f4f5;
+            color: #000000;
+            font-weight: 700;
+            font-size: 9.5pt;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            padding: 8px 10px;
+            border-top: 1.5px solid #000000;
+            border-bottom: 1.5px solid #000000;
+            text-align: left;
+        }
+        .items-table td {
+            padding: 10px;
+            border-bottom: 1px solid #e4e4e7;
+            font-size: 10pt;
+            vertical-align: top;
+        }
+        .items-table .text-right {
+            text-align: right;
+        }
+        .items-table .text-center {
+            text-align: center;
+        }
+        .summary-table {
+            width: 100%;
+            margin-top: 10px;
+        }
+        .summary-table td {
+            padding: 4px 0;
+            font-size: 10.5pt;
+        }
+        .total-due {
+            border-top: 1.5px solid #000000;
+            border-bottom: 2px solid #000000;
+            padding-top: 6px !important;
+            padding-bottom: 6px !important;
+            font-size: 11.5pt !important;
+            font-weight: bold;
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 3px 8px;
+            border: 1px solid #000000;
+            font-size: 9pt;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .payment-box {
+            border: 1px solid #000000;
+            padding: 12px;
+            margin-top: 15px;
+            background: #fafafa;
+        }
+        .qris-img {
+            width: 95px;
+            height: 95px;
+            border: 1px solid #000000;
+            padding: 2px;
+            background: #ffffff;
+        }
+        .footer-note {
+            font-size: 8.5pt;
+            color: #444444;
+            line-height: 1.4;
+            margin-top: 15px;
+            border-top: 1px dashed #cccccc;
+            padding-top: 10px;
+        }
+        .sign-table {
+            margin-top: 25px;
+            width: 100%;
+        }
+        .sign-table td {
+            vertical-align: top;
+            font-size: 9.5pt;
         }
     </style>
 </head>
-<body class="bg-zinc-100 text-zinc-800 antialiased p-4 sm:p-8 min-h-screen flex flex-col items-center">
+<body>
 
-    <!-- Top Action Bar (No Print) -->
-    <div class="no-print w-full max-w-4xl mb-6 flex flex-wrap items-center justify-between gap-3 bg-white p-4 rounded-xl shadow-xs border border-zinc-200">
-        <a href="{{ route('projects.show', $project) }}" class="inline-flex items-center gap-1.5 text-xs font-semibold text-zinc-600 hover:text-emerald-600 transition-colors">
-            <span class="material-symbols-outlined text-[18px]">arrow_back</span>
-            <span>Kembali ke Detail Proyek</span>
-        </a>
-        <div class="flex flex-wrap items-center gap-2">
+@if(!($isPdf ?? false))
+    <!-- Action Bar & Notifications (Web View Only) -->
+    @if(session('success'))
+        <div class="flash-alert no-print">
+            [✔] {{ session('success') }}
+        </div>
+    @endif
+    @if(session('error'))
+        <div class="flash-alert no-print" style="border-color: #000; background: #fff1f2;">
+            [✕] {{ session('error') }}
+        </div>
+    @endif
+
+    <div class="action-bar no-print">
+        <div>
+            <a href="{{ $project->id ? route('projects.show', $project->id) : '#' }}" class="action-btn secondary">
+                &larr; Kembali ke Detail Proyek
+            </a>
+        </div>
+        <div style="display: flex; gap: 8px;">
             @php
-                $waShareText = rawurlencode("Halo Kak {$lead?->nama_kontak},\n\nBerikut rincian Invoice resmi untuk pengerjaan *{$project->nama_project}*:\nNomor: {$invoiceNumber}\nTotal: Rp " . number_format($project->harga, 0, ',', '.') . "\nStatus: " . strtoupper($project->payment_status) . "\n\nTerima kasih atas kerja samanya! 🙏\n- RZ Digital Creative");
+                $brandName = $settings->brand_name ?? 'RZ Digital Creative';
+                $bankStr = $settings->bank_info_string ?? '';
+                $bankMsg = $bankStr ? "\n\n💳 Pembayaran resmi dapat ditransfer ke:\n🏦 {$bankStr}" : "";
+                $waShareText = rawurlencode("Halo Kak {$lead?->nama_kontak},\n\nBerikut rincian Invoice resmi untuk proyek *{$project->nama_project}*:\n• Nomor Invoice: {$invoiceNumber}\n• Total Nilai: Rp " . number_format($project->harga, 0, ',', '.') . "\n• Sisa Tagihan: Rp " . number_format($project->remaining_balance ?? $project->sisa_tagihan, 0, ',', '.') . "{$bankMsg}\n\nTerima kasih atas kerja samanya!\n- {$brandName}");
                 $waPhone = preg_replace('/[^0-9]/', '', $lead?->kontak_wa ?? '');
             @endphp
-            <a href="https://wa.me/{{ $waPhone }}?text={{ $waShareText }}" target="_blank" class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold transition-all shadow-xs">
-                <span class="material-symbols-outlined text-[16px]">chat</span>
-                <span>Kirim WhatsApp</span>
+            @if($project->id)
+                <form id="formSendWaProject" action="{{ route('invoices.project.send-wa', $project->id) }}" method="POST" style="display: inline; margin: 0;">
+                    @csrf
+                    <button type="button" class="action-btn" onclick="Swal.fire({title:'Konfirmasi',text:'Kirim dokumen PDF Invoice ini langsung ke nomor WhatsApp {{ $lead?->kontak_wa }} via Flustra Gateway?',icon:'question',showCancelButton:true,confirmButtonText:'Ya, Kirim',cancelButtonText:'Batal',confirmButtonColor:'#7a8a60',cancelButtonColor:'#71717a',reverseButtons:true}).then(r=>{if(r.isConfirmed)document.getElementById('formSendWaProject').submit()})">
+                        Kirim PDF via WhatsApp
+                    </button>
+                </form>
+            @endif
+            <a href="https://wa.me/{{ $waPhone }}?text={{ $waShareText }}" target="_blank" class="action-btn secondary">
+                Teks WA
             </a>
-            <a href="{{ route('invoices.project', ['project' => $project, 'format' => 'pdf']) }}" class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold transition-all shadow-xs">
-                <span class="material-symbols-outlined text-[16px]">picture_as_pdf</span>
-                <span>Download PDF</span>
+            <a href="{{ route('invoices.project', ['project' => $project->id ?? 1, 'format' => 'pdf']) }}" class="action-btn secondary">
+                Download PDF
             </a>
-            <a href="{{ route('invoices.project', ['project' => $project, 'format' => 'word']) }}" class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold transition-all shadow-xs">
-                <span class="material-symbols-outlined text-[16px]">description</span>
-                <span>Download Word</span>
+            <a href="{{ route('invoices.project', ['project' => $project->id ?? 1, 'format' => 'word']) }}" class="action-btn secondary">
+                Download Word
             </a>
-            <button onclick="window.print()" class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-semibold transition-all shadow-xs">
-                <span class="material-symbols-outlined text-[16px]">print</span>
-                <span>Cetak</span>
+            <button onclick="window.print()" class="action-btn secondary">
+                Cetak
             </button>
         </div>
     </div>
+@endif
 
-    <!-- Invoice Document Container (A4 Proportions) -->
-    <div class="invoice-box bg-white w-full max-w-4xl p-8 sm:p-12 rounded-2xl shadow-md border border-zinc-200 relative">
-        
-        <!-- Header: Logo & Company Info -->
-        <div class="flex flex-col sm:flex-row sm:items-start justify-between gap-6 border-b-2 border-emerald-600 pb-8">
-            <div class="space-y-2">
-                <div class="flex items-center gap-3">
-                    <img src="{{ asset('images/logo_rz_teks.jpeg') }}" alt="RZ Digital Creative" class="h-12 w-auto object-contain rounded-lg">
-                    <div>
-                        <h1 class="text-xl font-black text-zinc-900 tracking-tight">RZ DIGITAL CREATIVE</h1>
-                        <p class="text-[11px] font-semibold text-emerald-700 uppercase tracking-wider">Web Development &amp; Digital Solutions</p>
-                    </div>
-                </div>
-                <div class="text-xs text-zinc-500 space-y-0.5 pt-1">
-                    <p>Website: <span class="font-semibold text-zinc-700">rzdigital.id</span> | Email: <span class="font-semibold text-zinc-700">halo@rzdigital.id</span></p>
-                    <p>WhatsApp Support: <span class="font-semibold text-zinc-700">0812-3456-7890</span></p>
-                </div>
-            </div>
+<!-- Enterprise Invoice Sheet -->
+<div class="invoice-wrapper">
 
-            <div class="sm:text-right space-y-1">
-                <div class="inline-block px-3 py-1 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 font-extrabold text-sm tracking-wider uppercase">
+    <!-- Header: Company Info & Logo -->
+    <table class="header-table">
+        <tr>
+            <td style="width: 60%;">
+                <table style="width: 100%;">
+                    <tr>
+                        @if(!empty($logoBase64))
+                            <td style="width: 65px; vertical-align: middle;">
+                                <img src="{{ $logoBase64 }}" alt="Logo" style="height: 55px; width: auto;" />
+                            </td>
+                        @endif
+                        <td style="vertical-align: middle; padding-left: 8px;">
+                            <div style="font-size: 13pt; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase;">
+                                {{ $settings->company_name ?? 'PT RZ DIGITAL CREATIVE ARTHA' }}
+                            </div>
+                            <div style="font-size: 8.5pt; font-weight: 600; color: #444444; text-transform: uppercase; letter-spacing: 0.5px;">
+                                {{ $settings->tagline ?? 'Software House & Digital Solutions' }}
+                            </div>
+                        </td>
+                    </tr>
+                </table>
+                <div style="font-size: 8.5pt; color: #333333; margin-top: 8px; line-height: 1.4;">
+                    Email: {{ $settings->email_support ?? 'support@rzdigitalcreative.my.id' }} | {{ $settings->email_company ?? 'company@rzdigitalcreative.my.id' }}<br>
+                    Website: {{ $settings->website_url ?? 'https://rzdigitalcreative.my.id' }}<br>
+                    WhatsApp: {{ $settings->phone_support ?? '0858-0874-9131' }}{{ !empty($settings->phone_support_2) ? ' / ' . $settings->phone_support_2 : '' }}
+                </div>
+            </td>
+            <td style="width: 40%; text-align: right; vertical-align: middle;">
+                <div style="font-size: 20pt; font-weight: 900; letter-spacing: 1px; text-transform: uppercase;">
                     INVOICE TAGIHAN
                 </div>
-                <p class="font-mono text-sm font-bold text-zinc-900 pt-1">{{ $invoiceNumber }}</p>
-                <p class="text-xs text-zinc-500">Tanggal: <span class="font-semibold text-zinc-700">{{ $invoiceDate }}</span></p>
-                <p class="text-xs text-zinc-500">Jatuh Tempo: <span class="font-semibold text-zinc-700">{{ $dueDate }}</span></p>
-            </div>
-        </div>
+                <div style="font-size: 10.5pt; font-weight: bold; margin-top: 4px;">
+                    No: {{ $invoiceNumber }}
+                </div>
+                <div style="margin-top: 6px;">
+                    <span class="status-badge">
+                        {{ strtoupper($project->payment_status ?? 'MENUNGGU PEMBAYARAN') }}
+                    </span>
+                </div>
+            </td>
+        </tr>
+    </table>
 
-        <!-- Client & Project Info Row -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 my-8 p-5 bg-zinc-50 rounded-xl border border-zinc-100">
-            <div>
-                <p class="text-[10px] font-bold font-mono text-zinc-400 uppercase tracking-wider">Ditagihkan Kepada (Klien):</p>
-                <h3 class="text-base font-extrabold text-zinc-900 mt-1">{{ $lead?->nama_usaha ?? 'Klien Terhormat' }}</h3>
-                <p class="text-xs text-zinc-600 mt-0.5 font-medium">u.p. {{ $lead?->nama_kontak ?? '-' }}</p>
-                <p class="text-xs text-zinc-500 font-mono mt-0.5">WhatsApp: {{ $lead?->kontak_wa ?? '-' }}</p>
-            </div>
-            <div class="sm:text-right">
-                <p class="text-[10px] font-bold font-mono text-zinc-400 uppercase tracking-wider">Deskripsi Project:</p>
-                <h4 class="text-sm font-extrabold text-zinc-900 mt-1">{{ $project->nama_project }}</h4>
-                <p class="text-xs text-zinc-600 mt-0.5 font-medium">Paket: <span class="text-emerald-700 font-bold">{{ $project->paket_label }}</span></p>
-                <p class="text-xs text-zinc-500 mt-0.5">Status Pengerjaan: <span class="font-semibold">{{ $project->status_label }}</span></p>
-            </div>
-        </div>
+    <div class="divider"></div>
 
-        <!-- Table Items -->
-        <div class="overflow-x-auto my-6">
-            <table class="w-full text-left text-xs">
-                <thead>
-                    <tr class="border-b border-zinc-200 text-[11px] font-bold font-mono text-zinc-500 uppercase tracking-wider bg-zinc-50">
-                        <th class="py-3 px-4">No.</th>
-                        <th class="py-3 px-4">Rincian Layanan / Pekerjaan</th>
-                        <th class="py-3 px-4 text-center">Jumlah</th>
-                        <th class="py-3 px-4 text-right">Harga (Rp)</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-zinc-100 text-zinc-800">
+    <!-- Metadata: Bill To & Dates -->
+    <table class="meta-table" style="margin-bottom: 10px;">
+        <tr>
+            <td style="width: 58%;">
+                <div style="font-size: 8.5pt; font-weight: bold; text-transform: uppercase; color: #555555;">
+                    TAGIHAN KEPADA (BILL TO):
+                </div>
+                <div style="font-size: 12pt; font-weight: bold; margin-top: 3px;">
+                    {{ $lead?->nama_usaha ?? 'Klien RZ Digital' }}
+                </div>
+                <div style="font-size: 9.5pt; color: #222222; margin-top: 2px;">
+                    U.p: <strong>{{ $lead?->nama_kontak ?? '-' }}</strong>
+                </div>
+                <div style="font-size: 9pt; color: #444444;">
+                    WhatsApp: {{ $lead?->kontak_wa ?? '-' }}<br>
+                    Email: {{ $lead?->email ?? '-' }}
+                </div>
+            </td>
+            <td style="width: 42%; text-align: right;">
+                <div style="font-size: 8.5pt; font-weight: bold; text-transform: uppercase; color: #555555;">
+                    DETAIL PENAGIHAN:
+                </div>
+                <table style="width: 100%; margin-top: 3px; font-size: 9.5pt;">
                     <tr>
-                        <td class="py-4 px-4 font-mono">1</td>
-                        <td class="py-4 px-4">
-                            <p class="font-bold text-zinc-900 text-sm">{{ $project->nama_project }}</p>
-                            <p class="text-zinc-500 text-[11px] mt-0.5">Pembuatan Website Paket {{ $project->paket_label }} (Domain, Hosting Setup, Responsive UI, WhatsApp Button &amp; Testing).</p>
-                        </td>
-                        <td class="py-4 px-4 text-center font-mono">1 Paket</td>
-                        <td class="py-4 px-4 text-right font-mono font-bold">{{ number_format($project->harga, 0, ',', '.') }}</td>
+                        <td style="text-align: right; color: #555555; padding: 2px 0;">Tanggal Terbit:</td>
+                        <td style="text-align: right; font-weight: bold; width: 110px; padding: 2px 0;">{{ $invoiceDate }}</td>
                     </tr>
-                </tbody>
-            </table>
-        </div>
+                    <tr>
+                        <td style="text-align: right; color: #555555; padding: 2px 0;">Jatuh Tempo:</td>
+                        <td style="text-align: right; font-weight: bold; padding: 2px 0;">{{ $dueDate }}</td>
+                    </tr>
+                    <tr>
+                        <td style="text-align: right; color: #555555; padding: 2px 0;">Jenis Layanan:</td>
+                        <td style="text-align: right; font-weight: bold; padding: 2px 0;">{{ strtoupper($project->paket_label ?? 'Project') }}</td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
 
-        <!-- Total Breakdown & Payment Status -->
-        <div class="border-t border-zinc-200 pt-4 flex flex-col sm:flex-row justify-between items-start gap-6">
-            <div class="w-full sm:w-1/2 space-y-3">
-                <div class="p-4 rounded-xl bg-emerald-50/70 border border-emerald-200/60 space-y-1 text-xs">
-                    <p class="font-bold text-emerald-950 uppercase tracking-wider text-[11px]">Informasi Pembayaran Rekening:</p>
-                    <div class="font-mono text-zinc-800 space-y-0.5 pt-1">
-                        <p>🏦 <span class="font-bold">BCA:</span> 8735-234-567 (a/n Ryan Zulkarnaen)</p>
-                        <p>🏦 <span class="font-bold">Mandiri:</span> 131-00-1234567-8 (a/n Ryan Zulkarnaen)</p>
+    <!-- Line Items Table -->
+    <table class="items-table">
+        <thead>
+            <tr>
+                <th style="width: 5%; text-align: center;">No.</th>
+                <th style="width: 55%;">Deskripsi Layanan / Pekerjaan</th>
+                <th style="width: 15%; text-align: center;">Kuantitas</th>
+                <th style="width: 25%; text-align: right;">Total Harga (Rp)</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td class="text-center" style="font-weight: bold;">1</td>
+                <td>
+                    <div style="font-weight: bold; font-size: 10.5pt;">{{ $project->nama_project }}</div>
+                    <div style="font-size: 8.5pt; color: #444444; margin-top: 3px;">
+                        Pengerjaan Software / Website Paket {{ $project->paket_label }} mencakup setup cloud hosting, konfigurasi domain, UI/UX responsif, dan integrasi WhatsApp.
                     </div>
-                    <p class="text-[10px] text-emerald-700 italic pt-1">Konfirmasi pembayaran dapat dikirim via WhatsApp dengan melampirkan bukti transfer.</p>
-                </div>
-            </div>
+                </td>
+                <td class="text-center">1 Paket</td>
+                <td class="text-right" style="font-weight: bold;">
+                    {{ number_format($project->harga, 0, ',', '.') }}
+                </td>
+            </tr>
+        </tbody>
+    </table>
 
-            <div class="w-full sm:w-5/12 space-y-2 text-xs">
-                <div class="flex justify-between py-1 text-zinc-600">
-                    <span>Total Biaya Project:</span>
-                    <span class="font-mono font-bold text-zinc-900">Rp {{ number_format($project->harga, 0, ',', '.') }}</span>
+    <!-- Calculation & Payment Breakdown -->
+    <table style="width: 100%; margin-top: 5px;">
+        <tr>
+            <!-- Left: Payment Instructions & QRIS -->
+            <td style="width: 55%; vertical-align: top; padding-right: 15px;">
+                <div class="payment-box">
+                    <table style="width: 100%;">
+                        <tr>
+                            @if(!empty($qrisBase64))
+                                <td style="width: 105px; vertical-align: top; text-align: center;">
+                                    <img src="{{ $qrisBase64 }}" alt="QRIS" class="qris-img" />
+                                    <div style="font-size: 7.5pt; font-weight: bold; text-transform: uppercase; margin-top: 3px;">
+                                        SCAN QRIS RESMI
+                                    </div>
+                                </td>
+                            @endif
+                            <td style="vertical-align: top; padding-left: 8px;">
+                                <div style="font-size: 8.5pt; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px;">
+                                    REKENING PEMBAYARAN RESMI:
+                                </div>
+                                <div style="font-size: 9.5pt; font-weight: bold; margin-top: 4px;">
+                                    {{ $settings->bank_name ?? 'Bank Central Asia (BCA)' }}
+                                </div>
+                                <div style="font-size: 11pt; font-weight: 900; letter-spacing: 0.5px; margin-top: 1px;">
+                                    {{ $settings->bank_account_number ?? '4740769826' }}
+                                </div>
+                                <div style="font-size: 8.5pt; color: #333333; margin-top: 1px;">
+                                    a.n {{ $settings->bank_account_holder ?? 'MUHAMAD RYAN RIZKI' }}
+                                </div>
+                                <div style="font-size: 7.5pt; color: #555555; margin-top: 6px; line-height: 1.3;">
+                                    Konfirmasi bukti transfer / struk QRIS dapat dikirimkan ke WhatsApp resmi atau diunggah pada Portal Klien.
+                                </div>
+                            </td>
+                        </tr>
+                    </table>
                 </div>
-                <div class="flex justify-between py-1 text-emerald-700">
-                    <span>Sudah Dibayar (DP / Mutasi):</span>
-                    <span class="font-mono font-bold">- Rp {{ number_format($project->total_terbayar, 0, ',', '.') }}</span>
-                </div>
-                <div class="flex justify-between py-2 border-t-2 border-zinc-900 text-sm font-extrabold text-zinc-900">
-                    <span>Sisa Tagihan:</span>
-                    <span class="font-mono text-base text-rose-600">Rp {{ number_format($project->sisa_tagihan, 0, ',', '.') }}</span>
-                </div>
+            </td>
 
-                <div class="pt-2 text-right">
+            <!-- Right: Subtotal, DP, and Balance Due -->
+            <td style="width: 45%; vertical-align: top;">
+                <table class="summary-table">
+                    <tr>
+                        <td style="color: #444444;">Subtotal Biaya Proyek:</td>
+                        <td style="text-align: right; font-weight: bold;">
+                            Rp {{ number_format($project->harga, 0, ',', '.') }}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="color: #444444;">Pembayaran Diterima (DP/Mutasi):</td>
+                        <td style="text-align: right; font-weight: bold;">
+                            - Rp {{ number_format($project->total_terbayar, 0, ',', '.') }}
+                        </td>
+                    </tr>
+                    <tr class="total-due">
+                        <td>SISA TAGIHAN (DUE):</td>
+                        <td style="text-align: right;">
+                            Rp {{ number_format($project->sisa_tagihan, 0, ',', '.') }}
+                        </td>
+                    </tr>
+                </table>
+
+                <div style="margin-top: 10px; text-align: right; font-size: 8pt; color: #555555;">
                     @if($project->sisa_tagihan <= 0)
-                        <span class="inline-block px-4 py-1.5 rounded-lg bg-emerald-600 text-white font-extrabold text-xs tracking-wider uppercase shadow-sm">
-                            ✓ LUNAS
-                        </span>
-                    @elseif($project->total_terbayar > 0)
-                        <span class="inline-block px-4 py-1.5 rounded-lg bg-amber-500 text-white font-extrabold text-xs tracking-wider uppercase shadow-sm">
-                            ⏳ DP TELAH DITERIMA (SISA Rp {{ number_format($project->sisa_tagihan, 0, ',', '.') }})
-                        </span>
+                        Status: <strong>LUNAS - Pembayaran Selesai</strong>
                     @else
-                        <span class="inline-block px-4 py-1.5 rounded-lg bg-rose-500 text-white font-extrabold text-xs tracking-wider uppercase shadow-sm">
-                            ⚠️ MENUNGGU PEMBAYARAN DP
-                        </span>
+                        Status: <strong>Harap diselesaikan sebelum tanggal jatuh tempo</strong>
                     @endif
                 </div>
-            </div>
-        </div>
+            </td>
+        </tr>
+    </table>
 
-        <!-- Signatures & Stamp -->
-        <div class="mt-12 pt-8 border-t border-zinc-200 flex justify-between items-end text-xs">
-            <div class="text-zinc-400 text-[10px] space-y-0.5">
-                <p>Dokumen ini diterbitkan secara sah dan otomatis oleh sistem RZ CRM.</p>
-                <p>Hak Cipta &copy; {{ date('Y') }} RZ Digital Creative. Dilindungi Undang-Undang.</p>
-            </div>
-            
-            <div class="text-center relative">
-                <!-- Digital Stamp Badge -->
-                <div class="absolute -top-10 left-1/2 -translate-x-1/2 opacity-20 pointer-events-none select-none">
-                    <div class="w-24 h-24 rounded-full border-4 border-emerald-600 flex items-center justify-center font-black text-emerald-600 text-[10px] uppercase text-center rotate-[-15deg]">
-                        RZ DIGITAL<br>VERIFIED
-                    </div>
+    <!-- Terms and Signatures -->
+    <table class="sign-table">
+        <tr>
+            <td style="width: 60%; vertical-align: bottom;">
+                <div class="footer-note">
+                    <strong>Syarat &amp; Ketentuan Penagihan:</strong><br>
+                    {!! nl2br(e($settings->invoice_terms ?? "1. Pembayaran resmi hanya sah apabila ditransfer ke rekening BCA atas nama MUHAMAD RYAN RIZKI atau via QRIS resmi RZ Digital Creative.\n2. Kwitansi resmi lunas bertanda tangan digital akan diterbitkan otomatis setelah pembayaran diverifikasi.\n3. Untuk bantuan teknis atau administrasi penagihan, hubungi WhatsApp: 0858-0874-9131.")) !!}
                 </div>
-                <p class="text-zinc-500 text-[11px] mb-8">Hormat Kami,<br><span class="font-bold text-zinc-900">RZ Digital Creative</span></p>
-                <p class="font-bold text-zinc-900 border-b border-zinc-900 pb-0.5 inline-block">Ryan Zulkarnaen</p>
-                <p class="text-[10px] text-zinc-500">Founder &amp; Project Lead</p>
-            </div>
-        </div>
+            </td>
+            <td style="width: 40%; text-align: center; vertical-align: bottom;">
+                <div style="font-size: 9pt; color: #444444;">
+                    {{ $settings->domicile_city ?? 'Tangerang Selatan' }}, {{ $invoiceDate }}
+                </div>
+                <div style="font-size: 9pt; font-weight: bold; text-transform: uppercase; margin-top: 3px;">
+                    {{ $settings->company_name ?? 'PT RZ DIGITAL CREATIVE ARTHA' }}
+                </div>
+                <div style="height: 55px; margin: 4px 0; text-align: center;">
+                    @if(!empty($signatureBase64))
+                        <img src="{{ $signatureBase64 }}" alt="Tanda Tangan" style="max-height: 55px; width: auto; max-width: 140px; display: inline-block;" />
+                    @endif
+                </div>
+                <div style="font-size: 9.5pt; font-weight: bold; text-decoration: underline;">
+                    {{ $settings->director_name ?? 'MUHAMAD RYAN RIZKI' }}
+                </div>
+                <div style="font-size: 8pt; color: #555555; text-transform: uppercase;">
+                    {{ $settings->director_title ?? 'Finance & Executive Director' }}
+                </div>
+            </td>
+        </tr>
+    </table>
 
-    </div>
+</div>
 
 </body>
 </html>

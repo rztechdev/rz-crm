@@ -18,6 +18,9 @@ class Project extends Model
         'paket',
         'harga',
         'status',
+        'portal_project_id',
+        'portal_user_id',
+        'synced_to_portal_at',
         'tanggal_mulai',
         'tanggal_selesai',
         'link_website',
@@ -30,6 +33,7 @@ class Project extends Model
             'harga' => 'integer',
             'tanggal_mulai' => 'date',
             'tanggal_selesai' => 'date',
+            'synced_to_portal_at' => 'datetime',
         ];
     }
 
@@ -48,6 +52,18 @@ class Project extends Model
         return $this->hasOne(MaintenanceSubscription::class, 'project_id');
     }
 
+    public function subscriptions(): HasMany
+    {
+        return $this->hasMany(ProjectSubscription::class, 'project_id');
+    }
+
+    public function activeSubscription(): HasOne
+    {
+        return $this->hasOne(ProjectSubscription::class, 'project_id')
+            ->whereIn('status', ['aktif', 'akan_expired', 'diperpanjang'])
+            ->latestOfMany();
+    }
+
     public function getTotalPaidAttribute(): int
     {
         return $this->payments()->where('status', 'lunas')->sum('jumlah');
@@ -56,6 +72,30 @@ class Project extends Model
     public function getRemainingBalanceAttribute(): int
     {
         return max(0, $this->harga - $this->total_paid);
+    }
+
+    public function getTotalTerbayarAttribute(): int
+    {
+        return $this->total_paid;
+    }
+
+    public function getSisaTagihanAttribute(): int
+    {
+        return $this->remaining_balance;
+    }
+
+    public function getPaymentStatusAttribute(): string
+    {
+        $paid = $this->total_paid;
+        $total = $this->harga;
+
+        if ($paid >= $total && $total > 0) {
+            return 'lunas';
+        }
+        if ($paid > 0) {
+            return 'dp_diterima';
+        }
+        return 'unpaid';
     }
 
     public function getStatusLabelAttribute(): string

@@ -107,6 +107,7 @@ class LeadController extends Controller
             'sumber' => 'required|string',
             'status' => 'required|string',
             'paket_diminati' => 'required|string',
+            'nilai_nego' => 'nullable|numeric|min:0',
             'catatan' => 'nullable|string',
             'follow_up_date' => 'nullable|date',
         ]);
@@ -145,6 +146,7 @@ class LeadController extends Controller
             'sumber' => 'required|string',
             'status' => 'required|string',
             'paket_diminati' => 'required|string',
+            'nilai_nego' => 'nullable|numeric|min:0',
             'catatan' => 'nullable|string',
             'follow_up_date' => 'nullable|date',
         ]);
@@ -182,6 +184,11 @@ class LeadController extends Controller
         $createdProject = null;
         if ($oldStatus !== 'deal' && $newStatus === 'deal' && $lead->projects()->count() === 0) {
             $createdProject = $this->createInitialProjectForDeal($lead);
+            try {
+                app(\App\Services\Portal\PortalSyncService::class)->syncProject($createdProject, true);
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning("Portal auto-sync on kanban deal conversion failed: " . $e->getMessage());
+            }
         }
 
         return response()->json([
@@ -231,11 +238,26 @@ class LeadController extends Controller
             'follow_up_date' => null,
         ]);
 
-        $project = $this->createInitialProjectForDeal($lead, $request->get('nama_project'), $request->get('harga'));
+        $price = $request->filled('harga') ? (int) $request->get('harga') : $lead->getEstimatedDealPrice();
+        $project = $this->createInitialProjectForDeal($lead, $request->get('nama_project'), $price);
 
-        ActivityLogger::log('lead_converted', "Mengonversi prospek {$lead->nama_usaha} menjadi Deal (Project ID #{$project->id})", 'Lead', $lead->id);
+        ActivityLogger::log('lead_converted', "Mengonversi prospek {$lead->nama_usaha} menjadi Deal (Project ID #{$project->id}, Nilai: Rp " . number_format($project->harga, 0, ',', '.') . ")", 'Lead', $lead->id);
 
-        return redirect()->route('projects.show', $project)->with('success', "🎉 Selamat! Lead berhasil ditandai Deal dan Project baru telah dibuat.");
+        $syncResult = null;
+        if ($request->boolean('sync_portal', true)) {
+            try {
+                $syncResult = app(\App\Services\Portal\PortalSyncService::class)->syncProject($project, true);
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning("Portal auto-sync on deal conversion failed: " . $e->getMessage());
+            }
+        }
+
+        $successMsg = "🎉 Selamat! Lead berhasil ditandai Deal dan Project baru telah dibuat (Nilai: Rp " . number_format($project->harga, 0, ',', '.') . ").";
+        if ($syncResult && ($syncResult['success'] ?? false)) {
+            $successMsg .= " Akun klien & proyek juga otomatis disinkronkan ke Portal Klien!";
+        }
+
+        return redirect()->route('projects.show', $project)->with('success', $successMsg);
     }
 
     /**
@@ -258,20 +280,19 @@ class LeadController extends Controller
     protected function createInitialProjectForDeal(Lead $lead, ?string $customProjectName = null, ?int $customPrice = null): Project
     {
         $packageKey = $lead->paket_diminati !== 'belum_tahu' ? $lead->paket_diminati : 'landing_page';
-        $packages = config('flustra.packages', []);
-        $defaultPrice = $packages[$packageKey]['price'] ?? 499000;
+        $finalPrice = $customPrice ?: $lead->getEstimatedDealPrice();
 
         $project = Project::create([
             'lead_id' => $lead->id,
             'nama_project' => $customProjectName ?: "Website {$lead->nama_usaha}",
             'paket' => $packageKey,
-            'harga' => $customPrice ?: $defaultPrice,
+            'harga' => $finalPrice,
             'status' => 'draft',
             'tanggal_mulai' => now()->toDateString(),
-            'catatan' => "Dikonversi otomatis dari Lead ID #{$lead->id}.",
+            'catatan' => "Dikonversi otomatis dari Lead ID #{$lead->id}." . ($lead->nilai_nego ? " (Harga kesepakatan nego: Rp " . number_format($lead->nilai_nego, 0, ',', '.') . ")" : ''),
         ]);
 
-        ActivityLogger::log('project_created', "Project otomatis dibuat untuk klien {$lead->nama_usaha} (Paket: {$project->paket_label})", 'Project', $project->id);
+        ActivityLogger::log('project_created', "Project otomatis dibuat untuk klien {$lead->nama_usaha} (Paket: {$project->paket_label}, Nilai: Rp " . number_format($project->harga, 0, ',', '.') . ")", 'Project', $project->id);
 
         return $project;
     }

@@ -57,10 +57,24 @@
 
         <!-- 5. Maintenance Subscriptions -->
         @php $isMaintenance = request()->routeIs('maintenance.*'); @endphp
-        <a href="{{ route('maintenance.index') }}" 
+        <a href="{{ route('maintenance.index') }}"
            class="flex items-center px-3.5 py-2.5 justify-start gap-3 rounded-lg text-xs transition-colors duration-150 group {{ $isMaintenance ? 'bg-emerald-600 text-white font-bold shadow-xs' : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-900/70 hover:text-zinc-900 dark:hover:text-zinc-100 font-medium' }}">
             <span class="material-symbols-outlined text-[20px] {{ $isMaintenance ? 'text-white' : 'text-zinc-400 dark:text-zinc-500 group-hover:text-zinc-700 dark:group-hover:text-zinc-300' }} shrink-0">published_with_changes</span>
             <span class="truncate">Maintenance Bulanan</span>
+        </a>
+
+        <!-- 5b. Project Subscriptions (Masa Berlaku) -->
+        @php
+            $isSubscriptions = request()->routeIs('subscriptions.*');
+            $expiringSoonCount = \App\Models\ProjectSubscription::whereIn('status', ['akan_expired', 'expired'])->count();
+        @endphp
+        <a href="{{ route('subscriptions.index') }}"
+           class="flex items-center px-3.5 py-2.5 justify-start gap-3 rounded-lg text-xs transition-colors duration-150 group {{ $isSubscriptions ? 'bg-emerald-600 text-white font-bold shadow-xs' : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-900/70 hover:text-zinc-900 dark:hover:text-zinc-100 font-medium' }}">
+            <span class="material-symbols-outlined text-[20px] {{ $isSubscriptions ? 'text-white' : 'text-zinc-400 dark:text-zinc-500 group-hover:text-zinc-700 dark:group-hover:text-zinc-300' }} shrink-0">license</span>
+            <span class="truncate flex-1">Masa Berlaku / Lisensi</span>
+            @if($expiringSoonCount > 0)
+                <span class="px-1.5 py-0.5 text-[10px] font-mono font-bold rounded-md {{ $isSubscriptions ? 'bg-white/20 text-white' : 'bg-amber-500 text-white' }} leading-none">{{ $expiringSoonCount }}</span>
+            @endif
         </a>
 
         <!-- 6. Message Logs -->
@@ -92,6 +106,16 @@
             <span class="material-symbols-outlined text-[20px] {{ $isUsers ? 'text-white' : 'text-zinc-400 dark:text-zinc-500 group-hover:text-zinc-700 dark:group-hover:text-zinc-300' }} shrink-0">manage_accounts</span>
             <span class="truncate">Kelola Tim &amp; Peran</span>
         </a>
+
+        <!-- 9. Company & Payment Settings (Admin) -->
+        @role('admin')
+            @php $isCompanySettings = request()->routeIs('settings.company.*'); @endphp
+            <a href="{{ route('settings.company.edit') }}" 
+               class="flex items-center px-3.5 py-2.5 justify-start gap-3 rounded-lg text-xs transition-colors duration-150 group {{ $isCompanySettings ? 'bg-emerald-600 text-white font-bold shadow-xs' : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-900/70 hover:text-zinc-900 dark:hover:text-zinc-100 font-medium' }}">
+                <span class="material-symbols-outlined text-[20px] {{ $isCompanySettings ? 'text-white' : 'text-zinc-400 dark:text-zinc-500 group-hover:text-zinc-700 dark:group-hover:text-zinc-300' }} shrink-0">corporate_fare</span>
+                <span class="truncate">Pengaturan Perusahaan</span>
+            </a>
+        @endrole
 
         <!-- Quick Snippets Shortcut in Sidebar -->
         <div class="pt-4 px-2">
@@ -217,8 +241,8 @@
         </a>
 
         <!-- 4. Menu / Lainnya (Paling Kanan) -->
-        @php 
-            $isOtherActive = request()->routeIs('payments.*', 'maintenance.*', 'messages.*', 'activity-logs.*', 'users.*', 'profile.*'); 
+        @php
+            $isOtherActive = request()->routeIs('payments.*', 'maintenance.*', 'subscriptions.*', 'messages.*', 'activity-logs.*', 'users.*', 'profile.*');
         @endphp
         <button type="button" @click="mobileMenuOpen = true" 
                 class="flex flex-col items-center justify-center flex-1 h-full py-1 transition-colors {{ $isOtherActive ? 'text-emerald-600 dark:text-emerald-400 font-bold' : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200 font-medium' }}">
@@ -275,10 +299,17 @@
                 </a>
 
                 <!-- 2. Maintenance -->
-                <a href="{{ route('maintenance.index') }}" 
+                <a href="{{ route('maintenance.index') }}"
                    class="flex items-center gap-2.5 p-3 rounded-xl border border-zinc-200/80 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/50 hover:border-emerald-500 transition-colors {{ request()->routeIs('maintenance.*') ? 'ring-1 ring-emerald-500 font-bold' : '' }}">
                     <span class="material-symbols-outlined text-teal-600 text-[20px]">published_with_changes</span>
                     <span class="text-xs text-zinc-800 dark:text-zinc-200">Maintenance</span>
+                </a>
+
+                <!-- 2b. Masa Berlaku / Lisensi -->
+                <a href="{{ route('subscriptions.index') }}"
+                   class="flex items-center gap-2.5 p-3 rounded-xl border border-zinc-200/80 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/50 hover:border-emerald-500 transition-colors {{ request()->routeIs('subscriptions.*') ? 'ring-1 ring-emerald-500 font-bold' : '' }}">
+                    <span class="material-symbols-outlined text-amber-600 text-[20px]">license</span>
+                    <span class="text-xs text-zinc-800 dark:text-zinc-200">Masa Berlaku</span>
                 </a>
 
                 <!-- 3. Riwayat Pesan -->
@@ -308,6 +339,15 @@
                     <span class="material-symbols-outlined text-indigo-500 text-[20px]">manage_accounts</span>
                     <span class="text-xs text-zinc-800 dark:text-zinc-200">Kelola Tim</span>
                 </a>
+
+                @role('admin')
+                    <!-- 7. Pengaturan Perusahaan -->
+                    <a href="{{ route('settings.company.edit') }}" 
+                       class="flex items-center gap-2.5 p-3 rounded-xl border border-zinc-200/80 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/50 hover:border-emerald-500 transition-colors {{ request()->routeIs('settings.company.*') ? 'ring-1 ring-emerald-500 font-bold' : '' }}">
+                        <span class="material-symbols-outlined text-emerald-600 text-[20px]">corporate_fare</span>
+                        <span class="text-xs text-zinc-800 dark:text-zinc-200">Pengaturan PT</span>
+                    </a>
+                @endrole
             </div>
 
             <!-- Profile & Theme & Logout Section -->

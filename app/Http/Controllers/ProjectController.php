@@ -9,6 +9,7 @@ use App\Models\MaintenanceSubscription;
 use App\Services\ActivityLogger;
 use App\Services\WhatsApp\FlustraWhatsAppService;
 use App\Services\WhatsApp\WhatsAppTemplates;
+use App\Services\Portal\PortalSyncService;
 use Illuminate\Http\Request;
 
 class ProjectController extends Controller
@@ -90,7 +91,7 @@ class ProjectController extends Controller
      */
     public function show(Project $project)
     {
-        $project->load(['lead.messageLogs', 'payments', 'maintenanceSubscription']);
+        $project->load(['lead.messageLogs', 'payments', 'maintenanceSubscription', 'subscriptions']);
 
         return view('projects.show', compact('project'));
     }
@@ -110,11 +111,25 @@ class ProjectController extends Controller
             'catatan' => 'nullable|string',
         ]);
 
+        if ($validated['harga'] < $project->total_paid) {
+            return back()->with('error', "Nilai kontrak tidak boleh lebih kecil dari total pembayaran yang sudah diterima (Rp " . number_format($project->total_paid, 0, ',', '.') . ").")->withInput();
+        }
+
+        $oldPrice = $project->harga;
         $project->update($validated);
 
-        ActivityLogger::log('project_updated', "Memperbarui data project {$project->nama_project}", 'Project', $project->id);
+        ActivityLogger::log('project_updated', "Memperbarui data project {$project->nama_project} (Harga: Rp " . number_format($oldPrice, 0, ',', '.') . " -> Rp " . number_format($project->harga, 0, ',', '.') . ", Sisa: Rp " . number_format($project->remaining_balance, 0, ',', '.') . ")", 'Project', $project->id);
 
-        return back()->with('success', "Project {$project->nama_project} berhasil diperbarui.");
+        // Auto-sync updated price & details to Client Portal if already connected
+        if ($project->synced_to_portal_at || $project->portal_project_id) {
+            try {
+                app(\App\Services\Portal\PortalSyncService::class)->syncProject($project, false);
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning("Portal auto-sync on project update failed: " . $e->getMessage());
+            }
+        }
+
+        return back()->with('success', "Data dan nilai kontrak proyek {$project->nama_project} berhasil diperbarui (Sisa Tagihan: Rp " . number_format($project->remaining_balance, 0, ',', '.') . ").");
     }
 
     /**
@@ -153,71 +168,72 @@ class ProjectController extends Controller
         $waMessageSummary = '';
 
         // =========================================================================
-        // AUTOMATION TRIGGER 1: Status diubah ke DP_DITERIMA
+        // 1. OPSI: PENCATATAN PEMBAYARAN DP & SUBSCRIPTION MAINTENANCE
         // =========================================================================
-        if ($newStatus === 'dp_diterima' && $oldStatus !== 'dp_diterima') {
-            // Optional: Record DP payment if specified or if no payments exist
-            if ($request->filled('dp_amount') && $request->dp_amount > 0) {
-                Payment::create([
-                    'project_id' => $project->id,
-                    'jenis' => 'dp',
-                    'jumlah' => $request->dp_amount,
-                    'status' => 'lunas',
-                    'tanggal' => now()->toDateString(),
-                    'catatan' => 'Uang Muka (DP) pengerjaan project.',
-                ]);
-            }
+        if ($newStatus === 'dp_diterima' && $request->filled('dp_amount') && $request->dp_amount > 0) {
+            Payment::create([
+                'project_id' => $project->id,
+                'jenis' => 'dp',
+                'jumlah' => $request->dp_amount,
+                'status' => 'lunas',
+                'tanggal' => now()->toDateString(),
+                'catatan' => 'Uang Muka (DP) pengerjaan project.',
+            ]);
+        }
 
-            if ($sendWa) {
-                $msg = WhatsAppTemplates::dpReceived($lead, $project);
-                $res = $this->waService->sendWhatsApp(
-                    to: $lead->kontak_wa,
-                    message: $msg,
-                    lead: $lead,
-                    tipePesan: 'invoice_dp',
-                    isAutomated: true // Enforce deal status guardrail
-                );
+        if ($newStatus === 'selesai' && $oldStatus !== 'selesai' && $request->boolean('create_maintenance', false)) {
+            MaintenanceSubscription::firstOrCreate(
+                ['lead_id' => $lead->id, 'project_id' => $project->id],
+                [
+                    'harga_bulanan' => config('flustra.default_maintenance_price', 150000),
+                    'status' => 'aktif',
+                    'tanggal_mulai' => now()->toDateString(),
+                    'tanggal_jatuh_tempo_berikutnya' => now()->addMonth()->toDateString(),
+                    'catatan' => "Langganan pemeliharaan untuk project {$project->nama_project}.",
+                ]
+            );
+        }
 
-                if ($res['success'] ?? false) {
-                    $waNotificationSent = true;
-                    $waMessageSummary = "WhatsApp konfirmasi DP & pengerjaan berhasil dikirim ke {$lead->kontak_wa}.";
-                }
+        // =========================================================================
+        // 2. WHATSAPP NOTIFICATION TRIGGER (SEMUA STATUS PROYEK)
+        // =========================================================================
+        if ($sendWa && !empty($lead->kontak_wa)) {
+            $msg = match ($newStatus) {
+                'dp_diterima' => WhatsAppTemplates::dpReceived($lead, $project),
+                'dikerjakan'  => WhatsAppTemplates::projectInProgress($lead, $project),
+                'review'      => WhatsAppTemplates::projectReview($lead, $project),
+                'selesai'     => WhatsAppTemplates::projectCompleted($lead, $project, $project->link_website),
+                'dibatalkan'  => WhatsAppTemplates::projectCancelled($lead, $project),
+                default       => WhatsAppTemplates::projectStatusUpdated($lead, $project),
+            };
+
+            $tipePesan = match ($newStatus) {
+                'dp_diterima' => 'invoice_dp',
+                'selesai'     => 'project_selesai',
+                default       => 'project_status_' . $newStatus,
+            };
+
+            $res = $this->waService->sendWhatsApp(
+                to: $lead->kontak_wa,
+                message: $msg,
+                lead: $lead,
+                tipePesan: $tipePesan,
+                isAutomated: false // Dikirim secara eksplisit oleh admin/owner
+            );
+
+            if ($res['success'] ?? false) {
+                $waNotificationSent = true;
+                $waMessageSummary = "WhatsApp pemberitahuan progres ({$project->status_label}) berhasil dikirim ke {$lead->kontak_wa}.";
             }
         }
 
         // =========================================================================
-        // AUTOMATION TRIGGER 2: Status diubah ke SELESAI
+        // 3. AUTO-SYNC STATUS PROYEK KE PORTAL KLIEN
         // =========================================================================
-        if ($newStatus === 'selesai' && $oldStatus !== 'selesai') {
-            // Optional: Create Maintenance Subscription if requested
-            if ($request->boolean('create_maintenance', false)) {
-                MaintenanceSubscription::firstOrCreate(
-                    ['lead_id' => $lead->id, 'project_id' => $project->id],
-                    [
-                        'harga_bulanan' => config('flustra.default_maintenance_price', 150000),
-                        'status' => 'aktif',
-                        'tanggal_mulai' => now()->toDateString(),
-                        'tanggal_jatuh_tempo_berikutnya' => now()->addMonth()->toDateString(),
-                        'catatan' => "Langganan pemeliharaan untuk project {$project->nama_project}.",
-                    ]
-                );
-            }
-
-            if ($sendWa) {
-                $msg = WhatsAppTemplates::projectCompleted($lead, $project, $project->link_website);
-                $res = $this->waService->sendWhatsApp(
-                    to: $lead->kontak_wa,
-                    message: $msg,
-                    lead: $lead,
-                    tipePesan: 'project_selesai',
-                    isAutomated: true // Enforce deal status guardrail
-                );
-
-                if ($res['success'] ?? false) {
-                    $waNotificationSent = true;
-                    $waMessageSummary = "WhatsApp pemberitahuan website live + proposal maintenance berhasil dikirim ke {$lead->kontak_wa}.";
-                }
-            }
+        try {
+            app(PortalSyncService::class)->syncProject($project, false);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning("Auto-sync to Portal on project status change error: " . $e->getMessage());
         }
 
         $flashMessage = "Status project {$project->nama_project} diubah menjadi: {$project->status_label}.";
@@ -226,6 +242,95 @@ class ProjectController extends Controller
         }
 
         return back()->with('success', $flashMessage);
+    }
+
+    /**
+     * Manually sync Project and Client to Portal Client system.
+     */
+    public function syncToPortal(Request $request, Project $project, PortalSyncService $portalSync)
+    {
+        $sendWa = $request->boolean('send_wa', true);
+        $result = $portalSync->syncProject($project, $sendWa);
+
+        if ($result['success'] ?? false) {
+            return back()->with('success', "🚀 " . $result['message']);
+        }
+
+        return back()->with('error', $result['message'] ?? 'Gagal melakukan sinkronisasi ke Portal.');
+    }
+
+    /**
+     * Send Project Website Link directly to Client via WhatsApp.
+     */
+    public function sendWebsiteWa(Request $request, Project $project)
+    {
+        $request->validate([
+            'link_website' => 'nullable|url',
+        ]);
+
+        if ($request->filled('link_website')) {
+            $project->link_website = $request->link_website;
+            $project->save();
+        }
+
+        $lead = $project->lead;
+        if (!$lead || empty($lead->kontak_wa)) {
+            return back()->with('error', 'Nomor WhatsApp klien tidak ditemukan.');
+        }
+
+        $link = $project->link_website ?: $request->input('link_website');
+        if (empty($link)) {
+            return back()->with('error', 'Silakan masukkan link URL website terlebih dahulu.');
+        }
+
+        $msg = WhatsAppTemplates::projectCompleted($lead, $project, $link);
+
+        $res = $this->waService->sendWhatsApp(
+            to: $lead->kontak_wa,
+            message: $msg,
+            lead: $lead,
+            tipePesan: 'project_website_share',
+            isAutomated: false
+        );
+
+        if ($res['success'] ?? false) {
+            ActivityLogger::log('send_website_wa', "Mengirim link website {$link} via WA ke {$lead->kontak_wa}", 'Project', $project->id);
+            return back()->with('success', "Link website berhasil dikirim ke WhatsApp klien ({$lead->kontak_wa})!");
+        }
+
+        return back()->with('error', 'Gagal mengirim WhatsApp: ' . ($res['message'] ?? 'Terjadi kesalahan gateway'));
+    }
+
+    /**
+     * Send Project Settlement (Pelunasan) Request directly to Client via WhatsApp.
+     */
+    public function sendSettlementWa(Request $request, Project $project)
+    {
+        $lead = $project->lead;
+        if (!$lead || empty($lead->kontak_wa)) {
+            return back()->with('error', 'Nomor WhatsApp klien tidak ditemukan.');
+        }
+
+        if ($project->remaining_balance <= 0) {
+            return back()->with('info', "Proyek {$project->nama_project} sudah lunas, tidak ada sisa tagihan pelunasan.");
+        }
+
+        $msg = WhatsAppTemplates::projectSettlementRequest($lead, $project);
+
+        $res = $this->waService->sendWhatsApp(
+            to: $lead->kontak_wa,
+            message: $msg,
+            lead: $lead,
+            tipePesan: 'project_settlement_request',
+            isAutomated: false
+        );
+
+        if ($res['success'] ?? false) {
+            ActivityLogger::log('send_settlement_wa', "Mengirim tagihan pelunasan sisa Rp " . number_format($project->remaining_balance, 0, ',', '.') . " via WA ke {$lead->kontak_wa}", 'Project', $project->id);
+            return back()->with('success', "Instruksi tagihan pelunasan (Sisa Rp " . number_format($project->remaining_balance, 0, ',', '.') . ") berhasil dikirim ke WhatsApp klien ({$lead->kontak_wa})!");
+        }
+
+        return back()->with('error', 'Gagal mengirim WhatsApp tagihan pelunasan: ' . ($res['message'] ?? 'Terjadi kesalahan gateway'));
     }
 
     /**

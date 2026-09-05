@@ -6,6 +6,7 @@ use App\Models\Lead;
 use App\Models\Project;
 use App\Models\Payment;
 use App\Models\MaintenanceSubscription;
+use App\Models\CompanySetting;
 use App\Services\ActivityLogger;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -28,18 +29,35 @@ class ExportController extends Controller
             $query->where('sumber', $request->sumber);
         }
 
+        $settings = CompanySetting::get();
+        $dateStr = date('Ymd-His');
+
         if ($format === 'pdf') {
             ActivityLogger::log('export_leads_pdf', 'Mengekspor data Leads ke file PDF');
             $leads = $query->latest()->get();
-            $pdf = Pdf::loadView('exports.leads-pdf', compact('leads'))->setPaper('a4', 'landscape');
-            return $pdf->download('rz-crm-leads-' . date('Y-m-d-His') . '.pdf');
+            $data = [
+                'leads' => $leads,
+                'settings' => $settings,
+                'logoBase64' => $settings->logo_base64,
+                'signatureBase64' => $settings->signature_base64,
+                'isPdf' => true,
+            ];
+            $pdf = Pdf::loadView('exports.leads-pdf', $data)->setPaper('a4', 'landscape');
+            return $pdf->download("Laporan-Database-Leads-{$dateStr}.pdf");
         }
 
         if ($format === 'word' || $format === 'doc') {
             ActivityLogger::log('export_leads_word', 'Mengekspor data Leads ke file Word (.doc)');
             $leads = $query->latest()->get();
-            $html = view('exports.leads-pdf', compact('leads'))->render();
-            $fileName = 'rz-crm-leads-' . date('Y-m-d-His') . '.doc';
+            $data = [
+                'leads' => $leads,
+                'settings' => $settings,
+                'logoBase64' => $settings->logo_base64,
+                'signatureBase64' => $settings->signature_base64,
+                'isPdf' => true,
+            ];
+            $html = view('exports.leads-pdf', $data)->render();
+            $fileName = "Laporan-Database-Leads-{$dateStr}.doc";
             return response($html, 200, [
                 'Content-Type' => 'application/msword; charset=UTF-8',
                 'Content-Disposition' => "attachment; filename=\"{$fileName}\"",
@@ -50,7 +68,7 @@ class ExportController extends Controller
 
         // Default: CSV Stream
         ActivityLogger::log('export_leads', 'Mengekspor data Leads ke file CSV/Excel');
-        $fileName = 'rz-crm-leads-' . date('Y-m-d-His') . '.csv';
+        $fileName = "Laporan-Database-Leads-{$dateStr}.csv";
 
         $headers = [
             'Content-Type' => 'text/csv; charset=UTF-8',
@@ -112,18 +130,35 @@ class ExportController extends Controller
             $query->where('status', $request->status);
         }
 
+        $settings = CompanySetting::get();
+        $dateStr = date('Ymd-His');
+
         if ($format === 'pdf') {
             ActivityLogger::log('export_projects_pdf', 'Mengekspor data Projects ke file PDF');
             $projects = $query->latest()->get();
-            $pdf = Pdf::loadView('exports.projects-pdf', compact('projects'))->setPaper('a4', 'landscape');
-            return $pdf->download('rz-crm-projects-' . date('Y-m-d-His') . '.pdf');
+            $data = [
+                'projects' => $projects,
+                'settings' => $settings,
+                'logoBase64' => $settings->logo_base64,
+                'signatureBase64' => $settings->signature_base64,
+                'isPdf' => true,
+            ];
+            $pdf = Pdf::loadView('exports.projects-pdf', $data)->setPaper('a4', 'landscape');
+            return $pdf->download("Laporan-Rekapitulasi-Proyek-{$dateStr}.pdf");
         }
 
         if ($format === 'word' || $format === 'doc') {
             ActivityLogger::log('export_projects_word', 'Mengekspor data Projects ke file Word (.doc)');
             $projects = $query->latest()->get();
-            $html = view('exports.projects-pdf', compact('projects'))->render();
-            $fileName = 'rz-crm-projects-' . date('Y-m-d-His') . '.doc';
+            $data = [
+                'projects' => $projects,
+                'settings' => $settings,
+                'logoBase64' => $settings->logo_base64,
+                'signatureBase64' => $settings->signature_base64,
+                'isPdf' => true,
+            ];
+            $html = view('exports.projects-pdf', $data)->render();
+            $fileName = "Laporan-Rekapitulasi-Proyek-{$dateStr}.doc";
             return response($html, 200, [
                 'Content-Type' => 'application/msword; charset=UTF-8',
                 'Content-Disposition' => "attachment; filename=\"{$fileName}\"",
@@ -134,7 +169,7 @@ class ExportController extends Controller
 
         // Default: CSV Stream
         ActivityLogger::log('export_projects', 'Mengekspor data Projects ke file CSV/Excel');
-        $fileName = 'rz-crm-projects-' . date('Y-m-d-His') . '.csv';
+        $fileName = "Laporan-Rekapitulasi-Proyek-{$dateStr}.csv";
 
         $headers = [
             'Content-Type' => 'text/csv; charset=UTF-8',
@@ -200,18 +235,35 @@ class ExportController extends Controller
             $query->where('status', $request->status);
         }
 
+        $settings = CompanySetting::get();
+        $dateStr = date('Ymd-His');
+
         if ($format === 'pdf') {
             ActivityLogger::log('export_payments_pdf', 'Mengekspor data Pembayaran ke file PDF');
             $payments = $query->latest('tanggal')->get();
-            $pdf = Pdf::loadView('exports.payments-pdf', compact('payments'))->setPaper('a4', 'landscape');
-            return $pdf->download('rz-crm-payments-' . date('Y-m-d-His') . '.pdf');
+            $data = [
+                'payments' => $payments,
+                'settings' => $settings,
+                'logoBase64' => $settings->logo_base64,
+                'signatureBase64' => $settings->signature_base64,
+                'isPdf' => true,
+            ];
+            $pdf = Pdf::loadView('exports.payments-pdf', $data)->setPaper('a4', 'landscape');
+            return $pdf->download("Laporan-Transaksi-Pembayaran-{$dateStr}.pdf");
         }
 
         if ($format === 'word' || $format === 'doc') {
             ActivityLogger::log('export_payments_word', 'Mengekspor data Pembayaran ke file Word (.doc)');
             $payments = $query->latest('tanggal')->get();
-            $html = view('exports.payments-pdf', compact('payments'))->render();
-            $fileName = 'rz-crm-payments-' . date('Y-m-d-His') . '.doc';
+            $data = [
+                'payments' => $payments,
+                'settings' => $settings,
+                'logoBase64' => $settings->logo_base64,
+                'signatureBase64' => $settings->signature_base64,
+                'isPdf' => true,
+            ];
+            $html = view('exports.payments-pdf', $data)->render();
+            $fileName = "Laporan-Transaksi-Pembayaran-{$dateStr}.doc";
             return response($html, 200, [
                 'Content-Type' => 'application/msword; charset=UTF-8',
                 'Content-Disposition' => "attachment; filename=\"{$fileName}\"",
@@ -222,7 +274,7 @@ class ExportController extends Controller
 
         // Default: CSV Stream
         ActivityLogger::log('export_payments', 'Mengekspor data Pembayaran ke file CSV/Excel');
-        $fileName = 'rz-crm-payments-' . date('Y-m-d-His') . '.csv';
+        $fileName = "Laporan-Transaksi-Pembayaran-{$dateStr}.csv";
 
         $headers = [
             'Content-Type' => 'text/csv; charset=UTF-8',
@@ -266,4 +318,3 @@ class ExportController extends Controller
         }, 200, $headers);
     }
 }
-

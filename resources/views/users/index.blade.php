@@ -86,10 +86,10 @@
                                             </button>
 
                                             @if($user->id !== auth()->id())
-                                                <form method="POST" action="{{ route('users.destroy', $user) }}" onsubmit="return confirm('Yakin ingin menghapus akun {{ $user->name }}?');">
+                                                <form method="POST" action="{{ route('users.destroy', $user) }}" x-ref="deleteUserDesktop{{ $user->id }}">
                                                     @csrf
                                                     @method('DELETE')
-                                                    <button type="submit" class="p-1.5 rounded-lg text-zinc-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors" title="Hapus Akun">
+                                                    <button type="button" @click="RzSwal.confirmDelete('Yakin ingin menghapus akun {{ $user->name }}?', $refs['deleteUserDesktop{{ $user->id }}'])" class="p-1.5 rounded-lg text-zinc-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors" title="Hapus Akun">
                                                         <span class="material-symbols-outlined text-[18px]">delete</span>
                                                     </button>
                                                 </form>
@@ -144,10 +144,10 @@
                                         Edit
                                     </button>
                                     @if($user->id !== auth()->id())
-                                        <form method="POST" action="{{ route('users.destroy', $user) }}" onsubmit="return confirm('Hapus {{ $user->name }}?');">
+                                        <form method="POST" action="{{ route('users.destroy', $user) }}" x-ref="deleteUserMobile{{ $user->id }}">
                                             @csrf
                                             @method('DELETE')
-                                            <button type="submit" class="px-2.5 py-1 rounded bg-rose-50 text-rose-600 font-bold text-[11px]">
+                                            <button type="button" @click="RzSwal.confirmDelete('Hapus {{ $user->name }}?', $refs['deleteUserMobile{{ $user->id }}'])" class="px-2.5 py-1 rounded bg-rose-50 text-rose-600 font-bold text-[11px]">
                                                 Hapus
                                             </button>
                                         </form>

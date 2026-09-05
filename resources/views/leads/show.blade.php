@@ -70,6 +70,12 @@
                                     <span class="material-symbols-outlined text-[16px] text-zinc-400">web</span>
                                     Paket: {{ $lead->paket_label }}
                                 </span>
+                                @if($lead->nilai_nego && $lead->nilai_nego > 0)
+                                    <span class="flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-50 dark:bg-amber-950/40 border border-amber-200/60 dark:border-amber-800/40 text-amber-700 dark:text-amber-300 font-bold font-mono">
+                                        <span class="material-symbols-outlined text-[14px]">price_change</span>
+                                        Nego: Rp {{ number_format($lead->nilai_nego, 0, ',', '.') }}
+                                    </span>
+                                @endif
                             </div>
                         </div>
                     </div>
@@ -174,6 +180,13 @@
 
                     <!-- Manual WhatsApp Send Box -->
                     <div class="p-4 bg-white dark:bg-zinc-900 border-t border-zinc-200/80 dark:border-zinc-800">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-xs font-bold text-zinc-700 dark:text-zinc-300">Kirim Pesan WhatsApp Manual</span>
+                            <button type="button" @click="$dispatch('open-quick-snippets')" class="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600 dark:text-emerald-400 hover:underline">
+                                <span class="material-symbols-outlined text-[14px]">content_paste</span>
+                                <span>Template Chat WA</span>
+                            </button>
+                        </div>
                         <form method="POST" action="{{ route('messages.send-manual') }}" class="space-y-3">
                             @csrf
                             <input type="hidden" name="lead_id" value="{{ $lead->id }}">
@@ -323,7 +336,7 @@
                             </div>
                         </div>
 
-                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
                             <div>
                                 <label class="block text-xs font-bold uppercase tracking-wider text-zinc-700 dark:text-zinc-300 mb-1">Paket Diminati</label>
                                 <select name="paket_diminati" class="w-full px-3.5 py-2.5 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs text-zinc-700 dark:text-zinc-300 focus:ring-emerald-500">
@@ -333,6 +346,12 @@
                                     <option value="custom" {{ $lead->paket_diminati == 'custom' ? 'selected' : '' }}>Custom Web App</option>
                                     <option value="belum_tahu" {{ $lead->paket_diminati == 'belum_tahu' ? 'selected' : '' }}>Belum Tahu</option>
                                 </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold uppercase tracking-wider text-zinc-700 dark:text-zinc-300 mb-1">Estimasi / Nilai Nego (Rp)</label>
+                                <input type="number" name="nilai_nego" value="{{ old('nilai_nego', $lead->nilai_nego) }}" placeholder="Contoh: 750000" min="0"
+                                       class="w-full px-3.5 py-2.5 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs text-zinc-900 dark:text-white focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500">
+                                <span class="text-[10px] text-zinc-400">Kosongkan jika mengikuti harga paket resmi</span>
                             </div>
                             <div>
                                 <label class="block text-xs font-bold uppercase tracking-wider text-zinc-700 dark:text-zinc-300 mb-1">Jadwal Follow-Up</label>
@@ -386,8 +405,13 @@
 
                     <div>
                         <label class="block text-xs font-bold uppercase text-zinc-700 dark:text-zinc-300 mb-1">Harga Kesepakatan (Rp)</label>
-                        <input type="number" name="harga" value="{{ $lead->getDefaultPackagePrice() }}" required
-                               class="w-full px-3.5 py-2.5 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs text-zinc-900 dark:text-white">
+                        <input type="number" name="harga" value="{{ $lead->getEstimatedDealPrice() }}" required
+                               class="w-full px-3.5 py-2.5 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs text-zinc-900 dark:text-white font-mono font-bold">
+                        @if($lead->nilai_nego)
+                            <p class="text-[10px] text-amber-600 dark:text-amber-400 font-semibold mt-1">
+                                ✓ Menggunakan estimasi harga kesepakatan nego prospek (Rp {{ number_format($lead->nilai_nego, 0, ',', '.') }}).
+                            </p>
+                        @endif
                     </div>
 
                     <p class="text-[11px] text-zinc-500">

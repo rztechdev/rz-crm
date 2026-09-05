@@ -1,5 +1,5 @@
 <x-app-layout>
-    <div class="space-y-6 w-full">
+    <div class="space-y-6 w-full" x-data>
 
             <!-- Flash Alert -->
             <x-flash />
@@ -10,6 +10,16 @@
                     <h1 class="text-2xl sm:text-3xl font-extrabold text-zinc-900 dark:text-white tracking-tight">Riwayat Pesan WhatsApp</h1>
                     <p class="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 mt-1">Seluruh log percakapan, template pesan, dan riwayat interaksi WhatsApp klien.</p>
                 </div>
+                @if($messages->total() > 0)
+                    <form method="POST" action="{{ route('messages.destroy-all') }}" x-ref="deleteAllMessages">
+                        @csrf
+                        @method('DELETE')
+                        <button type="button" @click="RzSwal.confirmDelete('Hapus seluruh {{ $messages->total() }} riwayat pesan? Data yang dihapus tidak bisa dikembalikan.', $refs.deleteAllMessages)" class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl border border-rose-200 dark:border-rose-800 text-xs font-semibold bg-white dark:bg-zinc-900 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors whitespace-nowrap">
+                            <span class="material-symbols-outlined text-[18px]">delete_sweep</span>
+                            <span>Hapus Semua Pesan</span>
+                        </button>
+                    </form>
+                @endif
             </div>
 
             <!-- Gateway Status Notice (Direct WA Mode Active) -->
@@ -68,6 +78,7 @@
                                 <th class="px-6 py-4">Isi Pesan</th>
                                 <th class="px-6 py-4">Status</th>
                                 <th class="px-6 py-4">Waktu</th>
+                                <th class="px-6 py-4 text-right">Aksi</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-zinc-100 dark:divide-zinc-800/60 text-xs">
@@ -114,10 +125,19 @@
                                     <td class="px-6 py-4 font-mono text-zinc-400 text-[11px] whitespace-nowrap">
                                         {{ $msg->created_at->format('d/m/Y H:i') }}
                                     </td>
+                                    <td class="px-6 py-4 text-right">
+                                        <form method="POST" action="{{ route('messages.destroy', $msg) }}" x-ref="deleteMsgDesktop{{ $msg->id }}">
+                                            @csrf
+                                            @method('DELETE')
+                                            <button type="button" @click="RzSwal.confirmDelete('Hapus riwayat pesan ini?', $refs['deleteMsgDesktop{{ $msg->id }}'])" class="p-1.5 rounded-lg text-zinc-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors" title="Hapus Pesan">
+                                                <span class="material-symbols-outlined text-[18px]">delete</span>
+                                            </button>
+                                        </form>
+                                    </td>
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="6" class="px-6 py-12 text-center text-zinc-400 text-xs">
+                                    <td colspan="7" class="px-6 py-12 text-center text-zinc-400 text-xs">
                                         Belum ada riwayat pesan WhatsApp.
                                     </td>
                                 </tr>
@@ -157,10 +177,19 @@
                                 <span class="px-2 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-600 font-mono uppercase">
                                     {{ str_replace('_', ' ', $msg->tipe_pesan) }}
                                 </span>
-                                <a href="https://wa.me/{{ preg_replace('/[^0-9]/', '', $msg->kontak_wa) }}" target="_blank" class="inline-flex items-center gap-1 font-bold text-emerald-600">
-                                    <span class="material-symbols-outlined text-[14px]">chat</span>
-                                    <span>Buka WA</span>
-                                </a>
+                                <div class="flex items-center gap-2">
+                                    <a href="https://wa.me/{{ preg_replace('/[^0-9]/', '', $msg->kontak_wa) }}" target="_blank" class="inline-flex items-center gap-1 font-bold text-emerald-600">
+                                        <span class="material-symbols-outlined text-[14px]">chat</span>
+                                        <span>Buka WA</span>
+                                    </a>
+                                    <form method="POST" action="{{ route('messages.destroy', $msg) }}" x-ref="deleteMsgMobile{{ $msg->id }}">
+                                        @csrf
+                                        @method('DELETE')
+                                        <button type="button" @click="RzSwal.confirmDelete('Hapus riwayat pesan ini?', $refs['deleteMsgMobile{{ $msg->id }}'])" class="p-1 rounded-lg text-zinc-400 hover:text-rose-600 dark:hover:text-rose-400" title="Hapus Pesan">
+                                            <span class="material-symbols-outlined text-[16px]">delete</span>
+                                        </button>
+                                    </form>
+                                </div>
                             </div>
                         </div>
                     @empty

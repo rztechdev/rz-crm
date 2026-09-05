@@ -12,6 +12,7 @@ const userIdMeta = document.querySelector('meta[name="user-id"]');
 window.authUserId = userIdMeta ? userIdMeta.getAttribute('content') : null;
 
 import './notifications';
+import './sweetalert';
 import Chart from 'chart.js/auto';
 import Alpine from 'alpinejs';
 

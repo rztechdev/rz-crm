@@ -35,34 +35,59 @@
                     </p>
                 </div>
 
-                <!-- Card 2: Closing Bulan Ini -->
-                <div class="rounded-xl border border-zinc-200/80 dark:border-zinc-800/80 bg-white dark:bg-zinc-900 p-5 shadow-xs">
-                    <div class="flex items-center justify-between pb-2">
-                        <span class="text-xs font-medium text-zinc-500 dark:text-zinc-400">Closing Bulan Ini</span>
-                        <span class="material-symbols-outlined text-[18px] text-zinc-400 dark:text-zinc-500">verified</span>
+                <!-- Card 2: Pendapatan Masuk & Closing Bulan Ini -->
+                <div class="rounded-xl border border-zinc-200/80 dark:border-zinc-800/80 bg-white dark:bg-zinc-900 p-5 shadow-xs flex flex-col justify-between">
+                    <div>
+                        <div class="flex items-center justify-between pb-2">
+                            <span class="text-xs font-medium text-zinc-500 dark:text-zinc-400">Pendapatan Masuk (Kas Lunas)</span>
+                            <span class="material-symbols-outlined text-[18px] text-emerald-500 dark:text-emerald-400">payments</span>
+                        </div>
+                        <div class="text-2xl font-bold tracking-tight text-emerald-600 dark:text-emerald-400 font-mono">
+                            Rp {{ number_format($stats['pendapatan_masuk_bulan_ini'], 0, ',', '.') }}
+                        </div>
                     </div>
-                    <div class="text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">
-                        Rp {{ number_format($stats['closing_bulan_ini'], 0, ',', '.') }}
+                    <div class="mt-2.5 pt-2 border-t border-zinc-100 dark:border-zinc-800/80 space-y-1 text-[11px] text-zinc-500 dark:text-zinc-400">
+                        <div class="flex items-center justify-between">
+                            <span>Total Deal Bulan {{ now()->translatedFormat('F') }}:</span>
+                            <span class="font-bold text-zinc-700 dark:text-zinc-300 font-mono">Rp {{ number_format($stats['nilai_deal_bulan_ini'], 0, ',', '.') }}</span>
+                        </div>
+                        @if($stats['piutang_belum_lunas'] > 0)
+                            <div class="flex items-center justify-between text-amber-600 dark:text-amber-400 font-semibold">
+                                <span class="flex items-center gap-1">
+                                    <span class="inline-block w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                                    <span>Sisa Piutang (Masih DP):</span>
+                                </span>
+                                <span class="font-mono">Rp {{ number_format($stats['piutang_belum_lunas'], 0, ',', '.') }} ({{ $stats['klien_masih_dp_count'] }} klien)</span>
+                            </div>
+                        @else
+                            <div class="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 text-[10px]">
+                                <span class="material-symbols-outlined text-[14px]">check_circle</span>
+                                <span>Seluruh proyek bulan ini telah lunas</span>
+                            </div>
+                        @endif
                     </div>
-                    <p class="text-[11px] text-zinc-500 dark:text-zinc-400 mt-1.5 flex items-center gap-1.5">
-                        <span class="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                        {{ $stats['project_deal_count'] }} proyek deal bulan {{ now()->translatedFormat('F') }}
-                    </p>
                 </div>
 
                 <!-- Card 3: MRR Maintenance -->
-                <div class="rounded-xl border border-zinc-200/80 dark:border-zinc-800/80 bg-white dark:bg-zinc-900 p-5 shadow-xs">
-                    <div class="flex items-center justify-between pb-2">
-                        <span class="text-xs font-medium text-zinc-500 dark:text-zinc-400">MRR Maintenance</span>
-                        <span class="material-symbols-outlined text-[18px] text-zinc-400 dark:text-zinc-500">autorenew</span>
+                <div class="rounded-xl border border-zinc-200/80 dark:border-zinc-800/80 bg-white dark:bg-zinc-900 p-5 shadow-xs flex flex-col justify-between">
+                    <div>
+                        <div class="flex items-center justify-between pb-2">
+                            <span class="text-xs font-medium text-zinc-500 dark:text-zinc-400">MRR Maintenance</span>
+                            <span class="material-symbols-outlined text-[18px] text-zinc-400 dark:text-zinc-500">autorenew</span>
+                        </div>
+                        <div class="text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50 font-mono">
+                            Rp {{ number_format($stats['mrr_maintenance'], 0, ',', '.') }}<span class="text-xs font-normal text-zinc-400 font-sans">/bln</span>
+                        </div>
                     </div>
-                    <div class="text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">
-                        Rp {{ number_format($stats['mrr_maintenance'], 0, ',', '.') }}<span class="text-xs font-normal text-zinc-400">/bln</span>
+                    <div class="mt-2.5 pt-2 border-t border-zinc-100 dark:border-zinc-800/80 text-[11px] text-zinc-500 dark:text-zinc-400 flex items-center gap-1.5">
+                        @if($stats['active_maintenance_count'] > 0)
+                            <span class="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                            <span>{{ $stats['active_maintenance_count'] }} klien aktif berlangganan</span>
+                        @else
+                            <span class="inline-block w-1.5 h-1.5 rounded-full bg-zinc-300 dark:bg-zinc-600"></span>
+                            <span>Belum ada klien langganan aktif</span>
+                        @endif
                     </div>
-                    <p class="text-[11px] text-zinc-500 dark:text-zinc-400 mt-1.5 flex items-center gap-1.5">
-                        <span class="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                        {{ $stats['active_maintenance_count'] }} klien aktif
-                    </p>
                 </div>
 
                 <!-- Card 4: Total Database Leads -->
@@ -179,7 +204,16 @@
                                         <a href="{{ route('projects.show', $project) }}" class="font-bold text-zinc-900 dark:text-zinc-100 text-sm hover:text-emerald-600 dark:hover:text-emerald-400 truncate block">
                                             {{ $project->nama_project }}
                                         </a>
-                                        <p class="text-xs text-zinc-400 dark:text-zinc-500 mt-0.5">Klien: {{ $project->lead->nama_usaha }} • Rp {{ number_format($project->harga, 0, ',', '.') }}</p>
+                                        <p class="text-xs text-zinc-400 dark:text-zinc-500 mt-0.5">
+                                            Klien: {{ $project->lead->nama_usaha }} • Nilai: <span class="font-semibold text-zinc-700 dark:text-zinc-300 font-mono">Rp {{ number_format($project->harga, 0, ',', '.') }}</span>
+                                            @if($project->payment_status === 'dp_diterima')
+                                                • <span class="text-amber-600 dark:text-amber-400 font-semibold">(DP: Rp {{ number_format($project->total_paid, 0, ',', '.') }} | Sisa: Rp {{ number_format($project->remaining_balance, 0, ',', '.') }})</span>
+                                            @elseif($project->payment_status === 'lunas')
+                                                • <span class="text-emerald-600 dark:text-emerald-400 font-semibold">(Lunas)</span>
+                                            @else
+                                                • <span class="text-rose-500 font-semibold">(Belum Bayar)</span>
+                                            @endif
+                                        </p>
                                     </div>
                                     <div class="shrink-0 text-right">
                                         <span class="px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider {{ $project->status === 'dikerjakan' ? 'bg-amber-50 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400' : 'bg-sky-50 text-sky-600 dark:bg-sky-950/40 dark:text-sky-400' }}">
@@ -205,6 +239,68 @@
                 </div>
 
             </div>
+
+            <!-- Subscription / Masa Berlaku Warning -->
+            @if($expiringSubscriptions->isNotEmpty())
+            <div class="bg-white dark:bg-zinc-900 rounded-2xl border border-amber-200/80 dark:border-amber-900/40 shadow-sm p-6">
+                <div class="flex items-center justify-between pb-4 border-b border-zinc-100 dark:border-zinc-800">
+                    <div class="flex items-center gap-2">
+                        <span class="material-symbols-outlined text-amber-500">license</span>
+                        <h3 class="font-bold text-zinc-900 dark:text-white text-base">Masa Berlaku Akan / Sudah Habis</h3>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        @if($stats['expired_subscription_count'] > 0)
+                            <span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-rose-100 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 font-mono">{{ $stats['expired_subscription_count'] }} Expired</span>
+                        @endif
+                        @if($stats['akan_expired_subscription_count'] > 0)
+                            <span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-100 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 font-mono">{{ $stats['akan_expired_subscription_count'] }} Akan Expired</span>
+                        @endif
+                    </div>
+                </div>
+
+                <div class="divide-y divide-zinc-100 dark:divide-zinc-800/60 mt-2">
+                    @foreach($expiringSubscriptions as $sub)
+                        @php
+                            $isExpired = $sub->status === 'expired';
+                            $sisaHari = $sub->sisa_hari;
+                        @endphp
+                        <div class="py-3 flex items-center justify-between gap-3 hover:bg-zinc-50/60 dark:hover:bg-zinc-800/30 px-2 rounded-xl transition-colors">
+                            <div class="min-w-0">
+                                <div class="flex items-center gap-2">
+                                    <a href="{{ route('projects.show', $sub->project) }}" class="font-bold text-zinc-900 dark:text-zinc-100 text-sm hover:text-emerald-600 dark:hover:text-emerald-400 truncate">
+                                        {{ $sub->project->nama_project }}
+                                    </a>
+                                    @if($isExpired)
+                                        <span class="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 border border-rose-200/50 dark:border-rose-900/40">Expired</span>
+                                    @else
+                                        <span class="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 border border-amber-200/50 dark:border-amber-900/40">{{ $sisaHari }} Hari Lagi</span>
+                                    @endif
+                                </div>
+                                <p class="text-xs text-zinc-400 dark:text-zinc-500 mt-0.5 truncate">
+                                    {{ $sub->lead->nama_usaha }} • {{ $sub->tipe_label }} • Expired: {{ $sub->tanggal_expired->format('d M Y') }}
+                                </p>
+                            </div>
+                            <div class="flex items-center gap-2 shrink-0">
+                                <form method="POST" action="{{ route('subscriptions.reminder', $sub) }}">
+                                    @csrf
+                                    <button type="submit" class="p-2 rounded-lg bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100 transition-colors" title="Kirim Reminder WA">
+                                        <span class="material-symbols-outlined text-[18px]">chat</span>
+                                    </button>
+                                </form>
+                                <a href="{{ route('subscriptions.index') }}" class="px-2.5 py-1.5 rounded-lg bg-zinc-100 dark:bg-zinc-800 text-xs font-semibold text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 transition-colors">Kelola</a>
+                            </div>
+                        </div>
+                    @endforeach
+                </div>
+
+                <div class="mt-4 pt-3 border-t border-zinc-100 dark:border-zinc-800 flex justify-end">
+                    <a href="{{ route('subscriptions.index') }}" class="text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1">
+                        <span>Kelola Semua Subscription</span>
+                        <span class="material-symbols-outlined text-[16px]">arrow_forward</span>
+                    </a>
+                </div>
+            </div>
+            @endif
 
             <!-- Bottom Section: Incoming WhatsApp Messages Feed -->
             <div class="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200/80 dark:border-zinc-800 shadow-sm p-6">

@@ -15,9 +15,11 @@ class Lead extends Model
         'nama_usaha',
         'nama_kontak',
         'kontak_wa',
+        'email',
         'sumber',
         'status',
         'paket_diminati',
+        'nilai_nego',
         'catatan',
         'follow_up_date',
     ];
@@ -25,6 +27,7 @@ class Lead extends Model
     protected function casts(): array
     {
         return [
+            'nilai_nego' => 'integer',
             'follow_up_date' => 'date',
         ];
     }
@@ -47,6 +50,11 @@ class Lead extends Model
     public function activeMaintenanceSubscription(): HasOne
     {
         return $this->hasOne(MaintenanceSubscription::class, 'lead_id')->where('status', 'aktif')->latestOfMany();
+    }
+
+    public function projectSubscriptions(): HasMany
+    {
+        return $this->hasMany(ProjectSubscription::class, 'lead_id');
     }
 
     public function messageLogs(): HasMany
@@ -139,5 +147,18 @@ class Lead extends Model
     {
         $packages = config('flustra.packages', []);
         return $packages[$this->paket_diminati]['price'] ?? 499000;
+    }
+
+    /**
+     * Helper to get estimated deal / negotiated price.
+     * Prioritizes negotiated price if set, otherwise falls back to package price.
+     */
+    public function getEstimatedDealPrice(): int
+    {
+        if ($this->nilai_nego && $this->nilai_nego > 0) {
+            return (int) $this->nilai_nego;
+        }
+
+        return $this->getDefaultPackagePrice();
     }
 }

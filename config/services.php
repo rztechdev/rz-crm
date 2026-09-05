@@ -35,4 +35,9 @@ return [
         ],
     ],
 
+    'portal' => [
+        'sync_url' => env('PORTAL_INTERNAL_SYNC_URL', 'https://portalclient.rzdigitalcreative.my.id/api/internal/v1/sync-client-project'),
+        'sync_secret' => env('PORTAL_INTERNAL_SECRET', 'rz_portal_sync_secret_key_2026'),
+    ],
+
 ];

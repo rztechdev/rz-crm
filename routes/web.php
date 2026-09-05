@@ -26,6 +26,10 @@ Route::get('/', function () {
 Route::post('/api/webhook/flustra', [FlustraWebhookController::class, 'handle'])->name('webhook.flustra');
 Route::post('/webhook/flustra', [FlustraWebhookController::class, 'handle']);
 
+// Portal Client Kanban Two-Way Sync Endpoint
+Route::post('/api/internal/v1/sync-from-portal', [\App\Http\Controllers\Api\CrmInternalSyncController::class, 'syncFromPortal']);
+Route::post('/api/internal/v1/sync-payment-from-portal', [\App\Http\Controllers\Api\CrmInternalSyncController::class, 'syncPaymentFromPortal']);
+
 // Authenticated CRM Routes
 Route::middleware(['auth', 'verified'])->group(function () {
     // 1. Dashboard
@@ -48,6 +52,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::put('/projects/{project}', [ProjectController::class, 'update'])->name('projects.update');
     Route::delete('/projects/{project}', [ProjectController::class, 'destroy'])->name('projects.destroy');
     Route::post('/projects/{project}/status', [ProjectController::class, 'updateStatus'])->name('projects.update-status');
+    Route::post('/projects/{project}/send-website-wa', [ProjectController::class, 'sendWebsiteWa'])->name('projects.send-website-wa');
+    Route::post('/projects/{project}/send-settlement-wa', [ProjectController::class, 'sendSettlementWa'])->name('projects.send-settlement-wa');
+    Route::post('/projects/{project}/sync-portal', [ProjectController::class, 'syncToPortal'])->name('projects.sync-portal');
 
     // 4. Payments & Invoicing
     Route::get('/payments', [PaymentController::class, 'index'])->name('payments.index');
@@ -57,18 +64,35 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // 5. Official Invoices & Receipts (Printable / PDF)
     Route::get('/invoices/project/{project}', [InvoiceController::class, 'projectInvoice'])->name('invoices.project');
+    Route::post('/invoices/project/{project}/send-wa', [InvoiceController::class, 'sendProjectInvoiceWa'])->name('invoices.project.send-wa');
+    Route::get('/invoices/settlement/{project}', [InvoiceController::class, 'settlementInvoice'])->name('invoices.settlement');
+    Route::post('/invoices/settlement/{project}/send-wa', [InvoiceController::class, 'sendSettlementInvoiceWa'])->name('invoices.settlement.send-wa');
     Route::get('/invoices/payment/{payment}', [InvoiceController::class, 'paymentReceipt'])->name('invoices.receipt');
+    Route::post('/invoices/payment/{payment}/send-wa', [InvoiceController::class, 'sendPaymentReceiptWa'])->name('invoices.receipt.send-wa');
     Route::get('/invoices/maintenance/{subscription}', [InvoiceController::class, 'maintenanceInvoice'])->name('invoices.maintenance');
+    Route::post('/invoices/maintenance/{subscription}/send-wa', [InvoiceController::class, 'sendMaintenanceInvoiceWa'])->name('invoices.maintenance.send-wa');
 
     // 6. Maintenance Subscriptions
     Route::get('/maintenance', [MaintenanceController::class, 'index'])->name('maintenance.index');
     Route::post('/maintenance', [MaintenanceController::class, 'store'])->name('maintenance.store');
     Route::patch('/maintenance/{subscription}/toggle', [MaintenanceController::class, 'toggleStatus'])->name('maintenance.toggle');
+    Route::delete('/maintenance/{subscription}', [MaintenanceController::class, 'destroy'])->name('maintenance.destroy');
     Route::post('/maintenance/{subscription}/reminder', [MaintenanceController::class, 'sendReminder'])->name('maintenance.reminder');
+
+    // 6b. Project Subscriptions (Masa Berlaku / Lisensi)
+    Route::get('/subscriptions', [\App\Http\Controllers\ProjectSubscriptionController::class, 'index'])->name('subscriptions.index');
+    Route::post('/subscriptions', [\App\Http\Controllers\ProjectSubscriptionController::class, 'store'])->name('subscriptions.store');
+    Route::put('/subscriptions/{subscription}', [\App\Http\Controllers\ProjectSubscriptionController::class, 'update'])->name('subscriptions.update');
+    Route::post('/subscriptions/{subscription}/renew', [\App\Http\Controllers\ProjectSubscriptionController::class, 'renew'])->name('subscriptions.renew');
+    Route::patch('/subscriptions/{subscription}/toggle', [\App\Http\Controllers\ProjectSubscriptionController::class, 'toggleStatus'])->name('subscriptions.toggle');
+    Route::post('/subscriptions/{subscription}/reminder', [\App\Http\Controllers\ProjectSubscriptionController::class, 'sendReminder'])->name('subscriptions.reminder');
+    Route::delete('/subscriptions/{subscription}', [\App\Http\Controllers\ProjectSubscriptionController::class, 'destroy'])->name('subscriptions.destroy');
 
     // 7. WhatsApp Message Logs & Manual Dispatch
     Route::get('/messages', [WhatsAppController::class, 'index'])->name('messages.index');
     Route::post('/messages/send-manual', [WhatsAppController::class, 'sendManual'])->name('messages.send-manual');
+    Route::delete('/messages/{messageLog}', [WhatsAppController::class, 'destroy'])->name('messages.destroy');
+    Route::delete('/messages-clear', [WhatsAppController::class, 'destroyAll'])->name('messages.destroy-all');
 
     // 8. 1-Click Data Export (Zero-RAM Native Streaming CSV)
     Route::get('/export/leads', [ExportController::class, 'exportLeads'])->name('export.leads');
@@ -77,6 +101,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // 9. Activity Logs / Audit Trail (Admin)
     Route::get('/activity-logs', [ActivityLogController::class, 'index'])->name('activity-logs.index');
+    Route::delete('/activity-logs/{activityLog}', [ActivityLogController::class, 'destroy'])->name('activity-logs.destroy');
+    Route::delete('/activity-logs-clear', [ActivityLogController::class, 'destroyAll'])->name('activity-logs.destroy-all');
 
     // 10. Internal User Management (Admin Only)
     Route::get('/users', [UserController::class, 'index'])->name('users.index');
@@ -96,6 +122,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
         auth()->user()->notifications()->where('id', $id)->first()?->markAsRead();
         return response()->json(['success' => true]);
     });
+
+    // 12. Company & Payment Settings (Admin)
+    Route::get('/settings/company', [\App\Http\Controllers\CompanySettingController::class, 'edit'])->name('settings.company.edit');
+    Route::put('/settings/company', [\App\Http\Controllers\CompanySettingController::class, 'update'])->name('settings.company.update');
+    Route::post('/settings/company/test-wa', [\App\Http\Controllers\CompanySettingController::class, 'testWhatsApp'])->name('settings.company.test-wa');
 });
 
 require __DIR__.'/auth.php';

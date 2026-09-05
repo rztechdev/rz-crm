@@ -124,3 +124,124 @@
 .no-scrollbar {
     -ms-overflow-style: none;
 }
+
+/* SweetAlert2 Theme */
+.rz-swal-popup {
+    font-family: var(--font-sans) !important;
+    border-radius: 0.625rem !important;
+    border: 1px solid #e4e4e7 !important;
+    padding: 1.5rem !important;
+    letter-spacing: -0.011em;
+}
+.dark .rz-swal-popup {
+    border-color: #27272a !important;
+}
+.rz-swal-title {
+    font-size: 1.1rem !important;
+    font-weight: 700 !important;
+    letter-spacing: -0.025em !important;
+    padding: 0 !important;
+    margin-bottom: 0.25rem !important;
+}
+.rz-swal-text {
+    font-size: 0.875rem !important;
+    color: #52525b !important;
+}
+.dark .rz-swal-text {
+    color: #a1a1aa !important;
+}
+.rz-swal-confirm {
+    background-color: #7a8a60 !important;
+    color: #ffffff !important;
+    font-weight: 700 !important;
+    font-size: 0.8rem !important;
+    padding: 0.55rem 1.25rem !important;
+    border-radius: 0.625rem !important;
+    border: none !important;
+    transition: background-color 0.15s ease !important;
+    cursor: pointer !important;
+}
+.rz-swal-confirm:hover {
+    background-color: #64724e !important;
+}
+.rz-swal-cancel {
+    background-color: #ffffff !important;
+    color: #3f3f46 !important;
+    font-weight: 600 !important;
+    font-size: 0.8rem !important;
+    padding: 0.55rem 1.25rem !important;
+    border-radius: 0.625rem !important;
+    border: 1px solid #d4d4d8 !important;
+    transition: background-color 0.15s ease !important;
+    cursor: pointer !important;
+}
+.rz-swal-cancel:hover {
+    background-color: #f4f4f5 !important;
+}
+.dark .rz-swal-cancel {
+    background-color: #27272a !important;
+    color: #d4d4d8 !important;
+    border-color: #71717a !important;
+}
+.dark .rz-swal-cancel:hover {
+    background-color: #3f3f46 !important;
+}
+.rz-swal-danger {
+    background-color: #e11d48 !important;
+    color: #ffffff !important;
+    font-weight: 700 !important;
+    font-size: 0.8rem !important;
+    padding: 0.55rem 1.25rem !important;
+    border-radius: 0.625rem !important;
+    border: none !important;
+    transition: background-color 0.15s ease !important;
+    cursor: pointer !important;
+}
+.rz-swal-danger:hover {
+    background-color: #be123c !important;
+}
+.rz-swal-deny {
+    background-color: #e11d48 !important;
+    color: #ffffff !important;
+    font-weight: 700 !important;
+    font-size: 0.8rem !important;
+    padding: 0.55rem 1.25rem !important;
+    border-radius: 0.625rem !important;
+    border: none !important;
+    cursor: pointer !important;
+}
+.swal2-icon.swal2-success {
+    border-color: #8b9b70 !important;
+    color: #7a8a60 !important;
+}
+.swal2-icon.swal2-success .swal2-success-ring {
+    border-color: rgba(139, 155, 112, 0.3) !important;
+}
+.swal2-icon.swal2-success [class^='swal2-success-line'] {
+    background-color: #7a8a60 !important;
+}
+.swal2-icon.swal2-warning {
+    border-color: #d97706 !important;
+    color: #d97706 !important;
+}
+.swal2-icon.swal2-error {
+    border-color: #e11d48 !important;
+}
+.swal2-icon.swal2-error [class^='swal2-x-mark-line'] {
+    background-color: #e11d48 !important;
+}
+.swal2-icon.swal2-question {
+    border-color: #8b9b70 !important;
+    color: #8b9b70 !important;
+}
+.swal2-icon.swal2-info {
+    border-color: #0284c7 !important;
+    color: #0284c7 !important;
+}
+div:where(.swal2-container) {
+    z-index: 99999 !important;
+}
+.swal2-backdrop-show {
+    background: rgba(9, 9, 11, 0.5) !important;
+    backdrop-filter: blur(4px) !important;
+}

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Payment;
 use App\Models\Project;
+use App\Models\MaintenanceSubscription;
 use App\Services\ActivityLogger;
 use Illuminate\Http\Request;
 
@@ -49,6 +50,20 @@ class PaymentController extends Controller
         $payment = Payment::create($validated);
         $project = $payment->project;
 
+        // Auto-advance maintenance due date if payment is lunas
+        if ($payment->jenis === 'maintenance' && $payment->status === 'lunas' && $project) {
+            $this->advanceMaintenanceDueDate($project);
+        }
+
+        // Auto-sync project financial status to Portal if already connected
+        if ($project && $project->synced_to_portal_at) {
+            try {
+                app(\App\Services\Portal\PortalSyncService::class)->syncProject($project, false);
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning("Auto-sync to portal on payment created failed: " . $e->getMessage());
+            }
+        }
+
         ActivityLogger::log('payment_created', "Mencatat pembayaran {$payment->jenis_label} sebesar Rp " . number_format($payment->jumlah, 0, ',', '.') . " untuk project {$project?->nama_project}", 'Payment', $payment->id);
 
         return back()->with('success', "Pembayaran Rp " . number_format($payment->jumlah, 0, ',', '.') . " berhasil dicatat.");
@@ -65,6 +80,23 @@ class PaymentController extends Controller
 
         $oldStatus = $payment->status;
         $payment->update(['status' => $request->status]);
+        $project = $payment->project;
+
+        // Auto-advance maintenance due date if changed to lunas
+        if ($payment->jenis === 'maintenance' && $payment->status === 'lunas' && $oldStatus !== 'lunas') {
+            if ($project) {
+                $this->advanceMaintenanceDueDate($project);
+            }
+        }
+
+        // Auto-sync project financial status to Portal if already connected
+        if ($project && $project->synced_to_portal_at) {
+            try {
+                app(\App\Services\Portal\PortalSyncService::class)->syncProject($project, false);
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning("Auto-sync to portal on payment status changed failed: " . $e->getMessage());
+            }
+        }
 
         ActivityLogger::log('payment_status_changed', "Status pembayaran ID #{$payment->id} diubah dari {$oldStatus} menjadi {$payment->status}", 'Payment', $payment->id);
 
@@ -78,10 +110,44 @@ class PaymentController extends Controller
     {
         $id = $payment->id;
         $jumlah = $payment->jumlah;
+        $project = $payment->project;
         $payment->delete();
+
+        // Auto-sync project financial status to Portal if already connected
+        if ($project && $project->synced_to_portal_at) {
+            try {
+                app(\App\Services\Portal\PortalSyncService::class)->syncProject($project, false);
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning("Auto-sync to portal on payment deleted failed: " . $e->getMessage());
+            }
+        }
 
         ActivityLogger::log('payment_deleted', "Menghapus data pembayaran ID #{$id} senilai Rp " . number_format($jumlah, 0, ',', '.'), 'Payment', $id);
 
         return back()->with('success', "Data pembayaran berhasil dihapus.");
+    }
+
+    /**
+     * Helper to advance maintenance subscription due date when paid.
+     */
+    private function advanceMaintenanceDueDate(Project $project): void
+    {
+        $subscription = $project->maintenanceSubscription 
+            ?: MaintenanceSubscription::where('lead_id', $project->lead_id)->where('status', 'aktif')->first();
+
+        if ($subscription) {
+            $currentDue = $subscription->tanggal_jatuh_tempo_berikutnya 
+                ? \Carbon\Carbon::parse($subscription->tanggal_jatuh_tempo_berikutnya) 
+                : now();
+            
+            $newDue = $currentDue->isPast() ? now()->addMonth() : $currentDue->copy()->addMonth();
+
+            $subscription->update([
+                'tanggal_jatuh_tempo_berikutnya' => $newDue->toDateString(),
+                'status' => 'aktif',
+            ]);
+
+            ActivityLogger::log('maintenance_renewed', "Jatuh tempo maintenance {$project->lead?->nama_usaha} diperpanjang otomatis hingga " . $newDue->translatedFormat('d F Y'), 'MaintenanceSubscription', $subscription->id);
+        }
     }
 }

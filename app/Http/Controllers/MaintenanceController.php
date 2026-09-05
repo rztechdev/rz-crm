@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\MaintenanceSubscription;
 use App\Models\Lead;
+use App\Models\Project;
 use App\Services\ActivityLogger;
 use App\Services\WhatsApp\FlustraWhatsAppService;
 use App\Services\WhatsApp\WhatsAppTemplates;
@@ -39,7 +40,24 @@ class MaintenanceController extends Controller
             ->where('tanggal_jatuh_tempo_berikutnya', '<=', now()->addDays(3)->toDateString())
             ->count();
 
-        return view('maintenance.index', compact('subscriptions', 'activeCount', 'totalMRR', 'needReminderCount'));
+        // Projects available for manual maintenance deal creation
+        $availableProjects = Project::with('lead')
+            ->where('status', '!=', 'dibatalkan')
+            ->orderBy('nama_project')
+            ->get();
+
+        $availableLeads = Lead::where('status', 'deal')
+            ->orderBy('nama_usaha')
+            ->get();
+
+        return view('maintenance.index', compact(
+            'subscriptions',
+            'activeCount',
+            'totalMRR',
+            'needReminderCount',
+            'availableProjects',
+            'availableLeads'
+        ));
     }
 
     /**
@@ -62,6 +80,20 @@ class MaintenanceController extends Controller
         ActivityLogger::log('maintenance_created', "Mendaftarkan langganan maintenance untuk {$sub->lead->nama_usaha} (Rp " . number_format($sub->harga_bulanan, 0, ',', '.') . "/bln)", 'MaintenanceSubscription', $sub->id);
 
         return back()->with('success', "Langganan maintenance untuk {$sub->lead->nama_usaha} berhasil ditambahkan.");
+    }
+
+    /**
+     * Remove the specified maintenance subscription.
+     */
+    public function destroy(MaintenanceSubscription $subscription)
+    {
+        $namaUsaha = $subscription->lead?->nama_usaha ?? 'Klien';
+        $subId = $subscription->id;
+        $subscription->delete();
+
+        ActivityLogger::log('maintenance_deleted', "Menghapus langganan maintenance untuk {$namaUsaha}", 'MaintenanceSubscription', $subId);
+
+        return back()->with('success', "Langganan maintenance untuk {$namaUsaha} berhasil dihapus.");
     }
 
     /**

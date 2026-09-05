@@ -294,7 +294,13 @@
 
                                         <div class="text-[11px] font-medium text-zinc-700 dark:text-zinc-300 flex items-center justify-between">
                                             <span>{{ $kLead->paket_label }}</span>
-                                            <span class="font-mono text-[10px] text-zinc-400">Rp {{ number_format($kLead->getDefaultPackagePrice(), 0, ',', '.') }}</span>
+                                            @if($kLead->nilai_nego && $kLead->nilai_nego > 0)
+                                                <span class="font-mono text-[10px] font-bold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 px-1.5 py-0.5 rounded border border-amber-200/60 dark:border-amber-800/40" title="Harga Kesepakatan Nego">
+                                                    Nego: Rp {{ number_format($kLead->nilai_nego, 0, ',', '.') }}
+                                                </span>
+                                            @else
+                                                <span class="font-mono text-[10px] text-zinc-400">Rp {{ number_format($kLead->getDefaultPackagePrice(), 0, ',', '.') }}</span>
+                                            @endif
                                         </div>
 
                                         <!-- Overdue or Today Subtle Pill -->
@@ -435,7 +441,11 @@
                                         <!-- Paket Diminati -->
                                         <td class="px-6 py-4">
                                             <span class="font-semibold text-zinc-800 dark:text-zinc-200 block">{{ $lead->paket_label }}</span>
-                                            <span class="text-[10px] text-zinc-400 font-mono">Rp {{ number_format($lead->getDefaultPackagePrice(), 0, ',', '.') }}</span>
+                                            @if($lead->nilai_nego && $lead->nilai_nego > 0)
+                                                <span class="text-[10px] text-amber-600 dark:text-amber-400 font-mono font-bold block">Nego: Rp {{ number_format($lead->nilai_nego, 0, ',', '.') }}</span>
+                                            @else
+                                                <span class="text-[10px] text-zinc-400 font-mono">Rp {{ number_format($lead->getDefaultPackagePrice(), 0, ',', '.') }}</span>
+                                            @endif
                                         </td>
 
                                         <!-- Sumber -->
@@ -487,9 +497,9 @@
                                         <td class="px-6 py-4 text-right">
                                             <div class="flex items-center justify-end gap-1.5">
                                                 @if($lead->status !== 'deal')
-                                                    <form method="POST" action="{{ route('leads.convert-deal', $lead) }}" onsubmit="return confirm('Konfirmasi: Tandai Deal untuk {{ $lead->nama_usaha }} dan buat Project baru?');">
+                                                    <form method="POST" action="{{ route('leads.convert-deal', $lead) }}" x-ref="convertDealDesktop{{ $lead->id }}">
                                                         @csrf
-                                                        <button type="submit" class="px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold transition-colors flex items-center gap-1 shadow-sm" title="Konversi ke Proyek Deal">
+                                                        <button type="button" @click="RzSwal.confirm('Konfirmasi: Tandai Deal untuk {{ $lead->nama_usaha }} dan buat Project baru?', () => $refs['convertDealDesktop{{ $lead->id }}'].submit())" class="px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold transition-colors flex items-center gap-1 shadow-sm" title="Konversi ke Proyek Deal">
                                                             <span class="material-symbols-outlined text-[14px]">handshake</span>
                                                             <span>Tandai Deal</span>
                                                         </button>
@@ -500,10 +510,10 @@
                                                     <span class="material-symbols-outlined text-[18px]">chat</span>
                                                 </a>
 
-                                                <form method="POST" action="{{ route('leads.destroy', $lead) }}" onsubmit="return confirm('Yakin ingin menghapus lead ini?');">
+                                                <form method="POST" action="{{ route('leads.destroy', $lead) }}" x-ref="deleteLeadDesktop{{ $lead->id }}">
                                                     @csrf
                                                     @method('DELETE')
-                                                    <button type="submit" class="p-1.5 rounded-lg text-zinc-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors" title="Hapus Lead">
+                                                    <button type="button" @click="RzSwal.confirmDelete('Yakin ingin menghapus lead ini?', $refs['deleteLeadDesktop{{ $lead->id }}'])" class="p-1.5 rounded-lg text-zinc-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors" title="Hapus Lead">
                                                         <span class="material-symbols-outlined text-[18px]">delete</span>
                                                     </button>
                                                 </form>
@@ -553,7 +563,11 @@
 
                                 <div class="flex items-center justify-between text-xs text-zinc-600 dark:text-zinc-400">
                                     <span>{{ $lead->paket_label }}</span>
-                                    <span class="font-mono text-zinc-500">Rp {{ number_format($lead->getDefaultPackagePrice(), 0, ',', '.') }}</span>
+                                    @if($lead->nilai_nego && $lead->nilai_nego > 0)
+                                        <span class="font-mono text-amber-600 dark:text-amber-400 font-bold">Nego: Rp {{ number_format($lead->nilai_nego, 0, ',', '.') }}</span>
+                                    @else
+                                        <span class="font-mono text-zinc-500">Rp {{ number_format($lead->getDefaultPackagePrice(), 0, ',', '.') }}</span>
+                                    @endif
                                 </div>
 
                                 <div class="flex items-center justify-between pt-2 border-t border-zinc-100 dark:border-zinc-800/80 text-xs">
@@ -565,9 +579,9 @@
 
                                     <div class="flex items-center gap-1.5">
                                         @if($lead->status !== 'deal')
-                                            <form method="POST" action="{{ route('leads.convert-deal', $lead) }}" onsubmit="return confirm('Tandai Deal untuk {{ $lead->nama_usaha }}?');">
+                                            <form method="POST" action="{{ route('leads.convert-deal', $lead) }}" x-ref="convertDealMobile{{ $lead->id }}">
                                                 @csrf
-                                                <button type="submit" class="px-2.5 py-1.5 rounded-lg bg-zinc-100 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 text-[11px] font-bold">
+                                                <button type="button" @click="RzSwal.confirm('Tandai Deal untuk {{ $lead->nama_usaha }}?', () => $refs['convertDealMobile{{ $lead->id }}'].submit())" class="px-2.5 py-1.5 rounded-lg bg-zinc-100 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 text-[11px] font-bold">
                                                     Deal
                                                 </button>
                                             </form>
@@ -679,6 +693,15 @@
                                 <option value="belum_tahu">Belum Tahu / Konsultasi</option>
                             </select>
                         </div>
+                        <div>
+                            <label class="block text-xs font-bold uppercase tracking-wider text-zinc-700 dark:text-zinc-300 mb-1">Estimasi / Nilai Nego (Rp)</label>
+                            <input type="number" name="nilai_nego" placeholder="Opsional (misal: 750000)" min="0"
+                                   class="w-full px-3.5 py-2.5 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs text-zinc-900 dark:text-white focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500">
+                            <span class="text-[10px] text-zinc-400">Kosongkan jika mengikuti harga standar paket</span>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
                             <label class="block text-xs font-bold uppercase tracking-wider text-zinc-700 dark:text-zinc-300 mb-1">Jadwal Follow-Up</label>
                             <input type="date" name="follow_up_date" 
